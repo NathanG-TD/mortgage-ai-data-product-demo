@@ -140,7 +140,13 @@ instructions. Place files as:
 - `01_source_data/raw/freddie_origination.csv`
 - `01_source_data/raw/freddie_performance.csv`
 
-### 5. Install Python dependencies and load/generate source data
+### 5. Create staging tables
+
+```bash
+cat logon.txt 01_source_data/load_scripts/00_create_staging_tables.sql | bteq
+```
+
+### 6. Install Python dependencies and load/generate source data
 
 ```bash
 cd 01_source_data/load_scripts
@@ -150,12 +156,6 @@ python 02_load_freddie_performance.py
 python 03_generate_borrower_profile.py
 python 04_generate_property_valuation.py
 cd ../..
-```
-
-### 6. Create staging tables
-
-```bash
-cat logon.txt 01_source_data/load_scripts/00_create_staging_tables.sql | bteq
 ```
 
 ### 7. Deploy Memory and Semantic
