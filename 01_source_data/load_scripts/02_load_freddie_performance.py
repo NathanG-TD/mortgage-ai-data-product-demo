@@ -3,108 +3,80 @@
 Load the Freddie Mac Single Family Monthly Performance file into
 MortgagePlatform_Staging.STG_Freddie_Performance.
 
-Prerequisites:
-  - MortgagePlatform_Staging database created
-  - STG_Freddie_Performance table created
-  - Freddie Mac performance file placed at: ../raw/freddie_performance.csv
-    (pipe-delimited, no header row)
-  - STG_Freddie_Origination must be loaded first (join key reference)
-
 Usage:
   python 02_load_freddie_performance.py [--limit N] [--chunksize N]
-
-  --limit N      Load only first N rows
-  --chunksize N  Rows per batch (default 50000; reduce if memory-constrained)
 """
 import os
 import sys
 import argparse
-import math
 import pandas as pd
 from dotenv import load_dotenv
 import teradataml as tdml
 
-
-def to_python(x):
-    """Convert any pandas/numpy scalar to a native Python type or None."""
-    if x is None or x is pd.NA or x is pd.NaT:
-        return None
-    if isinstance(x, float) and math.isnan(x):
-        return None
-    if hasattr(x, "item"):
-        return x.item()
-    return x
-
 PERFORMANCE_COLUMNS = [
-    "LOAN_SEQUENCE_NUMBER",
-    "MONTHLY_REPORTING_PERIOD",
-    "CURRENT_ACTUAL_UPB",
-    "CURRENT_LOAN_DELINQUENCY_STATUS",
-    "LOAN_AGE",
-    "REMAINING_MONTHS_TO_MATURITY",
-    "REPURCHASE_DATE",
-    "MODIFICATION_FLAG",
-    "ZERO_BALANCE_CODE",
-    "ZERO_BALANCE_EFFECTIVE_DATE",
-    "CURRENT_INTEREST_RATE",
-    "CURRENT_DEFERRED_UPB",
-    "DUE_DATE_LAST_PAID_INSTALL",
-    "MI_RECOVERIES",
-    "NET_SALES_PROCEEDS",
-    "NON_MI_RECOVERIES",
-    "EXPENSES",
-    "LEGAL_COSTS",
-    "MAINTENANCE_PRESERVATION_COSTS",
-    "TAXES_AND_INSURANCE",
-    "MISCELLANEOUS_EXPENSES",
-    "ACTUAL_LOSS_CALCULATION",
-    "MODIFICATION_COST",
-    "STEP_MODIFICATION_FLAG",
-    "DEFERRED_PAYMENT_PLAN",
-    "ESTIMATED_LOAN_TO_VALUE",
-    "ZERO_BALANCE_REMOVAL_UPB",
-    "DELINQUENT_ACCRUED_INTEREST",
-    "DELINQUENCY_DUE_TO_DISASTER",
-    "BORROWER_ASSISTANCE_STATUS",
-    "CURRENT_MONTH_MODIFICATION_COST",
-    # Column 32: added in post-2019 Freddie Mac dataset format
-    "REPURCHASE_MAKE_WHOLE_PROCEEDS",
+    "LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD", "CURRENT_ACTUAL_UPB",
+    "CURRENT_LOAN_DELINQUENCY_STATUS", "LOAN_AGE", "REMAINING_MONTHS_TO_MATURITY",
+    "REPURCHASE_DATE", "MODIFICATION_FLAG", "ZERO_BALANCE_CODE",
+    "ZERO_BALANCE_EFFECTIVE_DATE", "CURRENT_INTEREST_RATE", "CURRENT_DEFERRED_UPB",
+    "DUE_DATE_LAST_PAID_INSTALL", "MI_RECOVERIES", "NET_SALES_PROCEEDS",
+    "NON_MI_RECOVERIES", "EXPENSES", "LEGAL_COSTS",
+    "MAINTENANCE_PRESERVATION_COSTS", "TAXES_AND_INSURANCE",
+    "MISCELLANEOUS_EXPENSES", "ACTUAL_LOSS_CALCULATION", "MODIFICATION_COST",
+    "STEP_MODIFICATION_FLAG", "DEFERRED_PAYMENT_PLAN", "ESTIMATED_LOAN_TO_VALUE",
+    "ZERO_BALANCE_REMOVAL_UPB", "DELINQUENT_ACCRUED_INTEREST",
+    "DELINQUENCY_DUE_TO_DISASTER", "BORROWER_ASSISTANCE_STATUS",
+    "CURRENT_MONTH_MODIFICATION_COST", "REPURCHASE_MAKE_WHOLE_PROCEEDS",
 ]
 
-DTYPE_MAP = {
-    "LOAN_SEQUENCE_NUMBER": "str",
-    "MONTHLY_REPORTING_PERIOD": "str",
-    "CURRENT_ACTUAL_UPB": "float64",
-    "CURRENT_LOAN_DELINQUENCY_STATUS": "str",
-    "LOAN_AGE": "Int64",
-    "REMAINING_MONTHS_TO_MATURITY": "Int64",
-    "REPURCHASE_DATE": "str",
-    "MODIFICATION_FLAG": "str",
-    "ZERO_BALANCE_CODE": "str",
-    "ZERO_BALANCE_EFFECTIVE_DATE": "str",
-    "CURRENT_INTEREST_RATE": "float64",
-    "CURRENT_DEFERRED_UPB": "float64",
-    "DUE_DATE_LAST_PAID_INSTALL": "str",
-    "MI_RECOVERIES": "float64",
-    "NET_SALES_PROCEEDS": "float64",
-    "NON_MI_RECOVERIES": "float64",
-    "EXPENSES": "float64",
-    "LEGAL_COSTS": "float64",
-    "MAINTENANCE_PRESERVATION_COSTS": "float64",
-    "TAXES_AND_INSURANCE": "float64",
-    "MISCELLANEOUS_EXPENSES": "float64",
-    "ACTUAL_LOSS_CALCULATION": "float64",
-    "MODIFICATION_COST": "float64",
-    "STEP_MODIFICATION_FLAG": "str",
-    "DEFERRED_PAYMENT_PLAN": "str",
-    "ESTIMATED_LOAN_TO_VALUE": "float64",
-    "ZERO_BALANCE_REMOVAL_UPB": "float64",
-    "DELINQUENT_ACCRUED_INTEREST": "float64",
-    "DELINQUENCY_DUE_TO_DISASTER": "str",
-    "BORROWER_ASSISTANCE_STATUS": "str",
-    "CURRENT_MONTH_MODIFICATION_COST": "float64",
-    "REPURCHASE_MAKE_WHOLE_PROCEEDS": "float64",
+INT_COLUMNS = {"LOAN_AGE", "REMAINING_MONTHS_TO_MATURITY"}
+
+FLOAT_COLUMNS = {
+    "CURRENT_ACTUAL_UPB", "CURRENT_INTEREST_RATE", "CURRENT_DEFERRED_UPB",
+    "MI_RECOVERIES", "NET_SALES_PROCEEDS", "NON_MI_RECOVERIES", "EXPENSES",
+    "LEGAL_COSTS", "MAINTENANCE_PRESERVATION_COSTS", "TAXES_AND_INSURANCE",
+    "MISCELLANEOUS_EXPENSES", "ACTUAL_LOSS_CALCULATION", "MODIFICATION_COST",
+    "ESTIMATED_LOAN_TO_VALUE", "ZERO_BALANCE_REMOVAL_UPB",
+    "DELINQUENT_ACCRUED_INTEREST", "CURRENT_MONTH_MODIFICATION_COST",
+    "REPURCHASE_MAKE_WHOLE_PROCEEDS",
 }
+
+NULL_SENTINELS = {"", " "}
+
+
+def parse_str(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    return None if not v else v
+
+
+def parse_int(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    if not v:
+        return None
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_float(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    if not v:
+        return None
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+
+def normalise(df):
+    for col in df.columns:
+        if col in INT_COLUMNS:
+            df[col] = [parse_int(x) for x in df[col]]
+        elif col in FLOAT_COLUMNS:
+            df[col] = [parse_float(x) for x in df[col]]
+        else:
+            df[col] = [parse_str(x) for x in df[col]]
+    return df
 
 
 def connect():
@@ -117,47 +89,32 @@ def connect():
     print(f"Connected to {host}")
 
 
-def load(limit: int | None = None, chunksize: int = 50000):
-    raw_path = os.path.join(os.path.dirname(__file__), "..", "raw", "freddie_performance.csv")
-    raw_path = os.path.abspath(raw_path)
-
+def load(limit=None, chunksize=50000):
+    raw_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "raw", "freddie_performance.csv")
+    )
     if not os.path.exists(raw_path):
         print(f"ERROR: Source file not found at {raw_path}")
-        print("Please download the Freddie Mac sample data and place it as:")
-        print("  01_source_data/raw/freddie_performance.csv")
         sys.exit(1)
 
     total_loaded = 0
     chunk_num = 0
-    rows_remaining = limit
-
     print(f"Reading {raw_path} in chunks of {chunksize:,} ...")
-    reader = pd.read_csv(
+
+    for chunk in pd.read_csv(
         raw_path,
         sep="|",
         header=None,
         names=PERFORMANCE_COLUMNS,
-        dtype=DTYPE_MAP,
-        na_values=["", " "],
-        keep_default_na=True,
+        dtype=str,
+        keep_default_na=False,
         chunksize=chunksize,
         nrows=limit,
-    )
-
-    for chunk in reader:
+    ):
         chunk_num += 1
-
-        str_cols = chunk.select_dtypes(include="object").columns
-        chunk[str_cols] = chunk[str_cols].apply(lambda c: c.str.strip())
-        chunk[str_cols] = chunk[str_cols].where(chunk[str_cols].notna(), None)
-        chunk = chunk.dropna(subset=["LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD"])
-
-        # Normalise: astype(object) first to break out of StringDtype/Int64
-        # so pd.NA doesn't materialise as float during iteration, then
-        # to_python converts all remaining nan/NA to Python None
-        chunk = chunk.astype(object)
-        for col in chunk.columns:
-            chunk[col] = chunk[col].apply(to_python)
+        chunk = normalise(chunk)
+        chunk = chunk[chunk["LOAN_SEQUENCE_NUMBER"].notna()]
+        chunk = chunk[chunk["MONTHLY_REPORTING_PERIOD"].notna()]
 
         tdml.copy_to_sql(
             df=chunk,
@@ -169,11 +126,6 @@ def load(limit: int | None = None, chunksize: int = 50000):
         total_loaded += len(chunk)
         print(f"  Chunk {chunk_num}: {len(chunk):,} rows | Total: {total_loaded:,}")
 
-        if rows_remaining is not None:
-            rows_remaining -= len(chunk)
-            if rows_remaining <= 0:
-                break
-
     print(f"Done. {total_loaded:,} total rows loaded.")
 
 
@@ -182,6 +134,5 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--chunksize", type=int, default=50000)
     args = parser.parse_args()
-
     connect()
     load(limit=args.limit, chunksize=args.chunksize)

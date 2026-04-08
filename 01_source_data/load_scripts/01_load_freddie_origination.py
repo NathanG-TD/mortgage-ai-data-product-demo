@@ -7,113 +7,81 @@ Prerequisites:
   - MortgagePlatform_Staging database created (00_setup/create_databases.sql)
   - STG_Freddie_Origination table created (00_create_staging_tables.sql)
   - Freddie Mac origination file placed at: ../raw/freddie_origination.csv
-    (pipe-delimited, no header row — see data_dictionary/freddie_mac_origination.md)
+    (pipe-delimited, no header row)
 
 Usage:
   python 01_load_freddie_origination.py [--limit N]
-
-  --limit N   Load only the first N rows (useful for quick testing)
 """
 import os
 import sys
 import argparse
-import math
 import pandas as pd
 from dotenv import load_dotenv
 import teradataml as tdml
-
-
-def to_python(x):
-    """Convert any pandas/numpy scalar to a native Python type or None.
-
-    teradatasql infers batch parameter types from the first non-null value it
-    sees per column. Any numpy type, pd.NA, pd.NaT, or float NaN that leaks
-    through causes a batch type-mismatch error (Error 502). This function
-    ensures every cell is a plain Python str/int/float or None before the
-    DataFrame is handed to copy_to_sql.
-    """
-    if x is None or x is pd.NA or x is pd.NaT:
-        return None
-    if isinstance(x, float) and math.isnan(x):
-        return None
-    # Convert numpy scalars (int64, float64, bool_, etc.) to Python native
-    if hasattr(x, "item"):
-        return x.item()
-    return x
 
 # ---------------------------------------------------------------------------
 # Column definitions — positional, matching Freddie Mac file layout exactly
 # ---------------------------------------------------------------------------
 ORIGINATION_COLUMNS = [
-    "CREDIT_SCORE",
-    "FIRST_PAYMENT_DATE",
-    "FIRST_TIME_HOMEBUYER_FLAG",
-    "MATURITY_DATE",
-    "MSA",
-    "MI_PERCENTAGE",
-    "NUMBER_OF_UNITS",
-    "OCCUPANCY_STATUS",
-    "ORIG_CLTV",
-    "ORIG_DTI",
-    "ORIG_UPB",
-    "ORIG_LTV",
-    "ORIG_INTEREST_RATE",
-    "CHANNEL",
-    "PPM_FLAG",
-    "AMORTIZATION_TYPE",
-    "PROPERTY_STATE",
-    "PROPERTY_TYPE",
-    "POSTAL_CODE",
-    "LOAN_SEQUENCE_NUMBER",
-    "LOAN_PURPOSE",
-    "ORIG_LOAN_TERM",
-    "NUMBER_OF_BORROWERS",
-    "SELLER_NAME",
-    "SERVICER_NAME",
-    "SUPER_CONFORMING_FLAG",
+    "CREDIT_SCORE", "FIRST_PAYMENT_DATE", "FIRST_TIME_HOMEBUYER_FLAG",
+    "MATURITY_DATE", "MSA", "MI_PERCENTAGE", "NUMBER_OF_UNITS",
+    "OCCUPANCY_STATUS", "ORIG_CLTV", "ORIG_DTI", "ORIG_UPB", "ORIG_LTV",
+    "ORIG_INTEREST_RATE", "CHANNEL", "PPM_FLAG", "AMORTIZATION_TYPE",
+    "PROPERTY_STATE", "PROPERTY_TYPE", "POSTAL_CODE", "LOAN_SEQUENCE_NUMBER",
+    "LOAN_PURPOSE", "ORIG_LOAN_TERM", "NUMBER_OF_BORROWERS",
+    "SELLER_NAME", "SERVICER_NAME", "SUPER_CONFORMING_FLAG",
     "PRE_RELIEF_REFINANCE_LSN",
-    # Columns 28-32: added in post-2018 Freddie Mac dataset format
-    "PROGRAM_INDICATOR",
-    "HARP_INDICATOR",
-    "PROPERTY_VALUATION_METHOD",
-    "INTEREST_ONLY_INDICATOR",
-    "MI_CANCELLATION_INDICATOR",
+    "PROGRAM_INDICATOR", "HARP_INDICATOR", "PROPERTY_VALUATION_METHOD",
+    "INTEREST_ONLY_INDICATOR", "MI_CANCELLATION_INDICATOR",
 ]
 
-DTYPE_MAP = {
-    "CREDIT_SCORE": "Int64",
-    "FIRST_PAYMENT_DATE": "str",
-    "FIRST_TIME_HOMEBUYER_FLAG": "str",
-    "MATURITY_DATE": "str",
-    "MSA": "str",
-    "MI_PERCENTAGE": "Int64",
-    "NUMBER_OF_UNITS": "Int64",
-    "OCCUPANCY_STATUS": "str",
-    "ORIG_CLTV": "Int64",
-    "ORIG_DTI": "Int64",
-    "ORIG_UPB": "float64",
-    "ORIG_LTV": "Int64",
-    "ORIG_INTEREST_RATE": "float64",
-    "CHANNEL": "str",
-    "PPM_FLAG": "str",
-    "AMORTIZATION_TYPE": "str",
-    "PROPERTY_STATE": "str",
-    "PROPERTY_TYPE": "str",
-    "POSTAL_CODE": "str",
-    "LOAN_SEQUENCE_NUMBER": "str",
-    "LOAN_PURPOSE": "str",
-    "ORIG_LOAN_TERM": "Int64",
-    "NUMBER_OF_BORROWERS": "Int64",
-    "SELLER_NAME": "str",
-    "SERVICER_NAME": "str",
-    "SUPER_CONFORMING_FLAG": "str",
-    "PRE_RELIEF_REFINANCE_LSN": "str",
-    "PROGRAM_INDICATOR": "str",
-    "HARP_INDICATOR": "str",
-    "PROPERTY_VALUATION_METHOD": "str",
-    "INTEREST_ONLY_INDICATOR": "str",
-    "MI_CANCELLATION_INDICATOR": "str",
+INT_COLUMNS = {
+    "CREDIT_SCORE", "MI_PERCENTAGE", "NUMBER_OF_UNITS",
+    "ORIG_CLTV", "ORIG_DTI", "ORIG_LTV",
+    "ORIG_LOAN_TERM", "NUMBER_OF_BORROWERS",
 }
+
+FLOAT_COLUMNS = {"ORIG_UPB", "ORIG_INTEREST_RATE"}
+
+# Exact string values treated as NULL
+NULL_SENTINELS = {"", " ", "9", "999", "9999"}
+
+
+def parse_str(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    return None if v in NULL_SENTINELS else (v if v else None)
+
+
+def parse_int(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    if v in NULL_SENTINELS:
+        return None
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_float(raw):
+    v = raw.strip() if isinstance(raw, str) else ""
+    if v in NULL_SENTINELS:
+        return None
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+
+def normalise(df):
+    """Convert all columns to native Python str/int/float/None only."""
+    for col in df.columns:
+        if col in INT_COLUMNS:
+            df[col] = [parse_int(x) for x in df[col]]
+        elif col in FLOAT_COLUMNS:
+            df[col] = [parse_float(x) for x in df[col]]
+        else:
+            df[col] = [parse_str(x) for x in df[col]]
+    return df
 
 
 def connect():
@@ -126,15 +94,12 @@ def connect():
     print(f"Connected to {host}")
 
 
-def load(limit: int | None = None):
-    raw_path = os.path.join(os.path.dirname(__file__), "..", "raw", "freddie_origination.csv")
-    raw_path = os.path.abspath(raw_path)
-
+def load(limit=None):
+    raw_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "raw", "freddie_origination.csv")
+    )
     if not os.path.exists(raw_path):
         print(f"ERROR: Source file not found at {raw_path}")
-        print("Please download the Freddie Mac sample data and place it as:")
-        print("  01_source_data/raw/freddie_origination.csv")
-        print("See: 01_source_data/data_dictionary/freddie_mac_origination.md")
         sys.exit(1)
 
     print(f"Reading {raw_path} ...")
@@ -143,25 +108,15 @@ def load(limit: int | None = None):
         sep="|",
         header=None,
         names=ORIGINATION_COLUMNS,
-        dtype=DTYPE_MAP,
-        na_values=["", " ", "9", "999", "9999"],
-        keep_default_na=True,
+        dtype=str,              # everything comes in as plain Python str
+        keep_default_na=False,  # no automatic NaN conversion
         nrows=limit,
     )
     print(f"  Rows read: {len(df):,}")
 
-    # Normalise all cells to native Python types or None.
-    # Step 1: astype(object) breaks out of pandas special dtypes (StringDtype,
-    #   Int64, Float64) so that None/NaN values are plain float('nan') in
-    #   object columns — not pd.NA which materialises as float when iterated.
-    # Step 2: to_python converts every remaining float nan to Python None and
-    #   unwraps any residual numpy scalars.
-    df = df.astype(object)
-    for col in df.columns:
-        df[col] = df[col].apply(to_python)
+    df = normalise(df)
 
-    # Remove rows with no loan sequence number (should not occur, but defensive)
-    df = df.dropna(subset=["LOAN_SEQUENCE_NUMBER"])
+    df = df[df["LOAN_SEQUENCE_NUMBER"].notna()]
     print(f"  Rows after null-key drop: {len(df):,}")
 
     print("Loading into MortgagePlatform_Staging.STG_Freddie_Origination ...")
@@ -177,8 +132,7 @@ def load(limit: int | None = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--limit", type=int, default=None, help="Load only first N rows")
+    parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
-
     connect()
     load(limit=args.limit)
