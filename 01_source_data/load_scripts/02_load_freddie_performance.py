@@ -137,6 +137,7 @@ def load(limit: int | None = None, chunksize: int = 50000):
 
         str_cols = chunk.select_dtypes(include="object").columns
         chunk[str_cols] = chunk[str_cols].apply(lambda c: c.str.strip())
+        chunk[str_cols] = chunk[str_cols].where(chunk[str_cols].notna(), None)
         chunk = chunk.dropna(subset=["LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD"])
 
         # Convert nullable Int64 columns to native Python int/None — teradatasql
@@ -144,6 +145,10 @@ def load(limit: int | None = None, chunksize: int = 50000):
         int_cols = [c for c in chunk.columns if str(chunk[c].dtype) == "Int64"]
         for col in int_cols:
             chunk[col] = chunk[col].apply(lambda x: None if pd.isna(x) else int(x))
+
+        # Replace float NaN with None for batch-type consistency
+        float_cols = chunk.select_dtypes(include="float64").columns
+        chunk[float_cols] = chunk[float_cols].where(chunk[float_cols].notna(), None)
 
         tdml.copy_to_sql(
             df=chunk,
