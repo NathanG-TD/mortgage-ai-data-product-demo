@@ -111,6 +111,8 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Freddie_Performance,
     DELINQUENCY_DUE_TO_DISASTER     CHAR(1),
     BORROWER_ASSISTANCE_STATUS      CHAR(2),
     CURRENT_MONTH_MODIFICATION_COST DECIMAL(15,2),
+    -- Column 32: added in post-2019 Freddie Mac dataset format
+    REPURCHASE_MAKE_WHOLE_PROCEEDS  DECIMAL(15,2),
     stg_load_timestamp              TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
 )
 PRIMARY INDEX (LOAN_SEQUENCE_NUMBER, MONTHLY_REPORTING_PERIOD);
@@ -126,6 +128,7 @@ COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.MODIFICATION_
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.CURRENT_ACTUAL_UPB IS 'Current unpaid principal balance. Zero when ZERO_BALANCE_CODE is populated.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.ESTIMATED_LOAN_TO_VALUE IS 'Current estimated LTV using updated property value model. Higher than origination LTV may indicate negative equity.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.BORROWER_ASSISTANCE_STATUS IS 'Active borrower assistance type. F=Forbearance, R=Repayment plan, T=Trial period modification plan.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.REPURCHASE_MAKE_WHOLE_PROCEEDS IS 'Proceeds received under a make-whole repurchase. Populated when a servicer repurchases a loan from Freddie Mac. Null for performing loans.';
 
 -- -----------------------------------------------------------------------------
 -- STG_Borrower_Profile

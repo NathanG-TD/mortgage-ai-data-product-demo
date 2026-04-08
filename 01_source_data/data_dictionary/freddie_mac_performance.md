@@ -50,6 +50,7 @@ for each loan across its lifetime. This is the primary source for churn signals
 | 29 | DELINQUENCY_DUE_TO_DISASTER | CHAR(1) | Y | Delinquency attributable to declared disaster. Y=Yes, N=No. |
 | 30 | BORROWER_ASSISTANCE_STATUS | CHAR(2) | Y | Current borrower assistance status code. F=Forbearance, R=Repayment plan, T=Trial period plan, null=None. |
 | 31 | CURRENT_MONTH_MODIFICATION_COST | DECIMAL(15,2) | Y | Modification cost incurred in the current reporting month only. |
+| 32 | REPURCHASE_MAKE_WHOLE_PROCEEDS | DECIMAL(15,2) | Y | Proceeds received under a make-whole repurchase when a servicer repurchases a loan from Freddie Mac. Null for performing loans. Added in post-2019 dataset format. |
 
 ## Key Business Rules
 
