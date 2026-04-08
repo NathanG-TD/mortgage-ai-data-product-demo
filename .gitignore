@@ -1,0 +1,31 @@
+# Source data files — too large for git
+01_source_data/raw/*.csv
+01_source_data/raw/*.txt
+01_source_data/raw/*.zip
+08_withheld_source/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Connection / credentials
+*.env
+connection.ini
+tdconnect.ini
+.tdpass
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Outputs
+05_mapping_agent/sample_outputs/*.xlsx
+!05_mapping_agent/mapping_output_template.xlsx

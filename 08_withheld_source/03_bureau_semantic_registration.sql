@@ -1,0 +1,11 @@
+-- =============================================================================
+-- 03_bureau_semantic_registration.sql
+-- Register the Credit Bureau Feed source in MortgagePlatform_Semantic
+--
+-- STATUS: Placeholder — to be generated once Semantic module DDL is complete.
+--
+-- Run during Act 2 of the demo after loading the bureau staging data.
+-- This makes the bureau source discoverable by the mapping agent.
+-- =============================================================================
+
+-- TODO: Implement once 03_semantic/01_semantic_ddl.sql is complete

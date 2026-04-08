@@ -1,0 +1,34 @@
+-- =============================================================================
+-- 01_domain_ddl.sql
+-- MortgagePlatform_Domain — Entity DDL
+--
+-- STATUS: Placeholder — to be generated using the AI-Native Data Product
+--         Domain module design standard.
+--
+-- Target entities (derived from source analysis):
+--
+--   Core Loan Entities:
+--     Loan              — mortgage facility
+--     LoanProduct       — product terms (rate, type, term)
+--     LoanPerformance   — monthly snapshot (UPB, delinquency, interest rate)
+--     LoanEvent         — discrete events (delinquency change, zero balance)
+--     LoanModification  — restructuring events
+--
+--   Customer Entities:
+--     Customer          — enterprise customer master
+--     CustomerContact   — contact details (email, phone)
+--     CustomerAddress   — residential address
+--     CustomerSegment   — CRM segmentation
+--     CustomerFinancial — income, employment
+--     CustomerCompliance — KYC, AML, credit impairment
+--     CustomerInsight   — analytically-derived scores (churn, NPS)
+--
+--   Property Entities:
+--     Property          — security property
+--     PropertyAddress   — physical address
+--     PropertyValuation — point-in-time valuations
+--     PropertyRisk      — flood, fire, environmental risk
+--     PropertyTitle     — legal title details
+-- =============================================================================
+
+-- TODO: Generate using domain module skill

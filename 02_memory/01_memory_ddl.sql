@@ -1,0 +1,19 @@
+-- =============================================================================
+-- 01_memory_ddl.sql
+-- MortgagePlatform_Memory — Database and Table DDL
+--
+-- STATUS: Placeholder — to be generated using the AI-Native Data Product
+--         Memory module design standard.
+--
+-- This script will create:
+--   - Module_Registry
+--   - Design_Decision
+--   - Change_Log
+--   - Business_Glossary
+--   - Query_Cookbook
+--   - data_product_map (agent discovery index)
+--
+-- See: AI-Native Data Product Design Standards / Memory Module
+-- =============================================================================
+
+-- TODO: Generate using memory module skill

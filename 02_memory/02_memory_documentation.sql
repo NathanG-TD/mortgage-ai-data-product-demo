@@ -1,0 +1,16 @@
+-- =============================================================================
+-- 02_memory_documentation.sql
+-- MortgagePlatform_Memory — Module Registration and Documentation INSERTs
+--
+-- STATUS: Placeholder — to be generated using the AI-Native Data Product
+--         Memory module design standard.
+--
+-- This script will INSERT:
+--   - Module_Registry: all deployed modules registered
+--   - Design_Decision: ADRs for key architectural choices
+--   - Change_Log: initial release entries
+--   - Business_Glossary: mortgage domain terminology
+--   - Query_Cookbook: common query patterns for this domain
+-- =============================================================================
+
+-- TODO: Generate using memory module skill

@@ -1,0 +1,18 @@
+-- =============================================================================
+-- 02_semantic_registration.sql
+-- MortgagePlatform_Semantic — data_product_map Registrations
+--
+-- STATUS: Placeholder — to be generated using the AI-Native Data Product
+--         Semantic module design standard.
+--
+-- This script will register all four active source tables and their
+-- domain model targets so the mapping agent can discover them.
+--
+-- Sources to register:
+--   - STG_Freddie_Origination     → Loan, Borrower, Property, LoanProduct
+--   - STG_Freddie_Performance     → LoanPerformance, LoanEvent, LoanModification
+--   - STG_Borrower_Profile        → Customer, CustomerContact, CustomerCompliance
+--   - STG_Property_Valuation      → Property, PropertyValuation, PropertyRisk
+-- =============================================================================
+
+-- TODO: Generate using semantic module skill

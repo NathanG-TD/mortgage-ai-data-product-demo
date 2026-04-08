@@ -1,0 +1,16 @@
+-- =============================================================================
+-- lineage_queries.sql
+-- MortgagePlatform — Lineage and Impact Analysis Queries
+--
+-- STATUS: Placeholder — queries to be completed once Domain and Semantic
+--         modules are deployed.
+--
+-- Intended queries:
+--   1. Source-to-domain lineage for a given domain attribute
+--   2. Impact analysis: which domain attributes are sourced from a given staging table
+--   3. Column-level lineage trace: raw source → staging → domain
+--   4. "What breaks if STG_Freddie_Origination changes?" — downstream impact
+--   5. New source coverage: which domain attributes does the bureau feed enrich?
+-- =============================================================================
+
+-- TODO: Implement after Domain and Semantic modules are complete
