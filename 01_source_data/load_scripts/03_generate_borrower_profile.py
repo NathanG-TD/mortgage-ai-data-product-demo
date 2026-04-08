@@ -54,10 +54,11 @@ def connect():
 
 def fetch_loan_sequence_numbers() -> list[str]:
     print("Fetching LOAN_SEQUENCE_NUMBERs from STG_Freddie_Origination ...")
-    df = tdml.DataFrame.from_query(
+    # Use execute_sql to avoid teradataml column-casing differences across versions
+    result = tdml.execute_sql(
         "SELECT LOAN_SEQUENCE_NUMBER FROM MortgagePlatform_Staging.STG_Freddie_Origination"
-    ).to_pandas()
-    lsns = df["LOAN_SEQUENCE_NUMBER"].tolist()
+    )
+    lsns = [row[0].strip() for row in result if row[0]]
     print(f"  Found {len(lsns):,} loans")
     return lsns
 
@@ -148,23 +149,40 @@ def generate_record(lsn: str, idx: int) -> dict:
 
 
 def generate_and_load(seed: int = 42):
+    load_dotenv()
+    host     = os.environ["TD_HOST"]
+    user     = os.environ["TD_USER"]
+    password = os.environ["TD_PASSWORD"]
+    logmech  = os.environ.get("TD_LOGMECH", "TD2")
+
     random.seed(seed)
     lsns = fetch_loan_sequence_numbers()
 
     print(f"Generating {len(lsns):,} borrower profile records ...")
     records = [generate_record(lsn, i + 1) for i, lsn in enumerate(lsns)]
-    df = pd.DataFrame(records)
-    print(f"  Generated {len(df):,} records")
+    print(f"  Generated {len(records):,} records")
+
+    # Build ordered column list and tuple rows — bypasses pandas to avoid
+    # None→NaN coercion that causes teradatasql batch type-mismatch errors
+    columns = list(records[0].keys())
+    rows = [tuple(r[c] for c in columns) for r in records]
+
+    cols    = ", ".join(columns)
+    holders = ", ".join(["?"] * len(columns))
+    sql     = (f"INSERT INTO MortgagePlatform_Staging.STG_Borrower_Profile"
+               f" ({cols}) VALUES ({holders})")
+
+    import json, teradatasql
+    con_params = json.dumps({"host": host, "user": user, "password": password, "logmech": logmech})
 
     print("Loading into MortgagePlatform_Staging.STG_Borrower_Profile ...")
-    tdml.copy_to_sql(
-        df=df,
-        table_name="STG_Borrower_Profile",
-        schema_name="MortgagePlatform_Staging",
-        if_exists="append",
-        index=False,
-    )
-    print(f"  Done. {len(df):,} rows loaded.")
+    batch_size = 5000
+    with teradatasql.connect(con_params) as con:
+        with con.cursor() as cur:
+            for start in range(0, len(rows), batch_size):
+                cur.executemany(sql, rows[start:start + batch_size])
+            con.commit()
+    print(f"  Done. {len(rows):,} rows loaded.")
 
 
 if __name__ == "__main__":

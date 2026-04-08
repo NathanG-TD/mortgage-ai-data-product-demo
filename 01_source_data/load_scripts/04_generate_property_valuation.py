@@ -51,7 +51,8 @@ def connect():
 
 def fetch_loan_data() -> pd.DataFrame:
     print("Fetching loan and customer data ...")
-    df = tdml.DataFrame.from_query("""
+    # Use execute_sql to avoid teradataml column-casing differences across versions
+    result = tdml.execute_sql("""
         SELECT
             o.LOAN_SEQUENCE_NUMBER,
             o.ORIG_UPB,
@@ -60,7 +61,17 @@ def fetch_loan_data() -> pd.DataFrame:
         FROM MortgagePlatform_Staging.STG_Freddie_Origination o
         JOIN MortgagePlatform_Staging.STG_Borrower_Profile b
           ON o.LOAN_SEQUENCE_NUMBER = b.LOAN_SEQUENCE_NUMBER
-    """).to_pandas()
+    """)
+    rows = [
+        {
+            "LOAN_SEQUENCE_NUMBER": row[0].strip() if row[0] else None,
+            "ORIG_UPB":            row[1],
+            "ORIG_LTV":            row[2],
+            "CUSTOMER_ID":         row[3].strip() if row[3] else None,
+        }
+        for row in result
+    ]
+    df = pd.DataFrame(rows)
     print(f"  Found {len(df):,} loans with customer records")
     return df
 
@@ -143,23 +154,38 @@ def generate_record(row: dict, idx: int) -> dict:
 
 
 def generate_and_load(seed: int = 42):
+    load_dotenv()
+    host     = os.environ["TD_HOST"]
+    user     = os.environ["TD_USER"]
+    password = os.environ["TD_PASSWORD"]
+    logmech  = os.environ.get("TD_LOGMECH", "TD2")
+
     random.seed(seed)
     loan_df = fetch_loan_data()
 
     print(f"Generating {len(loan_df):,} property valuation records ...")
     records = [generate_record(row, i + 1) for i, row in enumerate(loan_df.to_dict("records"))]
-    df = pd.DataFrame(records)
-    print(f"  Generated {len(df):,} records")
+    print(f"  Generated {len(records):,} records")
+
+    columns = list(records[0].keys())
+    rows = [tuple(r[c] for c in columns) for r in records]
+
+    cols    = ", ".join(columns)
+    holders = ", ".join(["?"] * len(columns))
+    sql     = (f"INSERT INTO MortgagePlatform_Staging.STG_Property_Valuation"
+               f" ({cols}) VALUES ({holders})")
+
+    import json, teradatasql
+    con_params = json.dumps({"host": host, "user": user, "password": password, "logmech": logmech})
 
     print("Loading into MortgagePlatform_Staging.STG_Property_Valuation ...")
-    tdml.copy_to_sql(
-        df=df,
-        table_name="STG_Property_Valuation",
-        schema_name="MortgagePlatform_Staging",
-        if_exists="append",
-        index=False,
-    )
-    print(f"  Done. {len(df):,} rows loaded.")
+    batch_size = 5000
+    with teradatasql.connect(con_params) as con:
+        with con.cursor() as cur:
+            for start in range(0, len(rows), batch_size):
+                cur.executemany(sql, rows[start:start + batch_size])
+            con.commit()
+    print(f"  Done. {len(rows):,} rows loaded.")
 
 
 if __name__ == "__main__":
