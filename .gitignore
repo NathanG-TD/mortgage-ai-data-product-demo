@@ -12,7 +12,8 @@ __pycache__/
 venv/
 .env
 
-# Connection / credentials
+# Connection / credentials — never commit these
+logon.txt
 *.env
 connection.ini
 tdconnect.ini

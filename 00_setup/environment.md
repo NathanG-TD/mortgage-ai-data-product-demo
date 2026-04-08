@@ -13,7 +13,23 @@
 
 ## Teradata Connection
 
-All Python scripts read connection parameters from environment variables:
+### logon.txt (BTEQ)
+
+Create a file named `logon.txt` in the **repo root directory** (it is gitignored):
+
+```
+.LOGON your-vantage-host/your-username,your-password;
+```
+
+All BTEQ commands in this repo use the pattern:
+
+```bash
+cat logon.txt <script>.sql | bteq
+```
+
+This keeps credentials out of every SQL script so they stay portable and safe to commit.
+
+### Python scripts
 
 ```bash
 export TD_HOST=your-vantage-host
@@ -73,7 +89,7 @@ python 01_source_data/load_scripts/04_generate_property_valuation.py
 To fully reset the environment:
 
 ```bash
-bteq < 00_setup/teardown.sql
+cat logon.txt 00_setup/teardown.sql | bteq
 ```
 
 This drops all four databases. It is safe to re-run `create_databases.sql` and the

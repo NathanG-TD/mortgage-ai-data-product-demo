@@ -110,35 +110,71 @@ mortgage-ai-data-product-demo/
 
 ## Quick Start
 
+### 1. Create your logon file
+
+Create `logon.txt` in the repo root (it is gitignored — never commit it):
+
+```
+.LOGON your-vantage-host/your-username,your-password;
+```
+
+All BTEQ commands below pipe this file first so the SQL scripts themselves
+stay credential-free and portable.
+
+### 2. Read the environment guide
+
 ```bash
-# 1. Read environment.md and configure your connection
 cat 00_setup/environment.md
+```
 
-# 2. Create databases
-bteq < 00_setup/create_databases.sql
+### 3. Create databases
 
-# 3. Download and place Freddie Mac data (see 01_source_data/data_dictionary/freddie_mac_origination.md)
+```bash
+cat logon.txt 00_setup/create_databases.sql | bteq
+```
 
-# 4. Install Python dependencies and load/generate source data
+### 4. Download and place Freddie Mac data
+
+See `01_source_data/data_dictionary/freddie_mac_origination.md` for download
+instructions. Place files as:
+- `01_source_data/raw/freddie_origination.csv`
+- `01_source_data/raw/freddie_performance.csv`
+
+### 5. Install Python dependencies and load/generate source data
+
+```bash
 cd 01_source_data/load_scripts
 pip install -r requirements.txt
 python 01_load_freddie_origination.py
 python 02_load_freddie_performance.py
 python 03_generate_borrower_profile.py
 python 04_generate_property_valuation.py
+cd ../..
+```
 
-# 5. Deploy Memory and Semantic
-bteq < 02_memory/01_memory_ddl.sql
-bteq < 02_memory/02_memory_documentation.sql
-bteq < 03_semantic/01_semantic_ddl.sql
-bteq < 03_semantic/02_semantic_registration.sql
-bteq < 03_semantic/03_semantic_documentation.sql
+### 6. Create staging tables
 
-# 6. Deploy Domain
-bteq < 04_domain/01_domain_ddl.sql
-bteq < 04_domain/02_domain_comments.sql
-bteq < 04_domain/03_domain_views.sql
-bteq < 04_domain/04_domain_documentation.sql
+```bash
+cat logon.txt 01_source_data/load_scripts/00_create_staging_tables.sql | bteq
+```
+
+### 7. Deploy Memory and Semantic
+
+```bash
+cat logon.txt 02_memory/01_memory_ddl.sql | bteq
+cat logon.txt 02_memory/02_memory_documentation.sql | bteq
+cat logon.txt 03_semantic/01_semantic_ddl.sql | bteq
+cat logon.txt 03_semantic/02_semantic_registration.sql | bteq
+cat logon.txt 03_semantic/03_semantic_documentation.sql | bteq
+```
+
+### 8. Deploy Domain
+
+```bash
+cat logon.txt 04_domain/01_domain_ddl.sql | bteq
+cat logon.txt 04_domain/02_domain_comments.sql | bteq
+cat logon.txt 04_domain/03_domain_views.sql | bteq
+cat logon.txt 04_domain/04_domain_documentation.sql | bteq
 ```
 
 ## Naming Convention
