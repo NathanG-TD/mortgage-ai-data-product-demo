@@ -17,6 +17,7 @@ Usage:
 import os
 import random
 import argparse
+import math
 import pandas as pd
 import numpy as np
 from datetime import date
@@ -25,6 +26,18 @@ from dotenv import load_dotenv
 import teradataml as tdml
 
 fake = Faker("en_AU")
+
+# Null-safe coercers — teradatasql returns float('nan') for NULL numeric
+# columns, which is truthy so a plain `if value` check passes and then
+# int(nan) / float(nan) raises ValueError.
+def _is_null(v):
+    return v is None or (isinstance(v, float) and math.isnan(v))
+
+def safe_float(v, default=400_000.0):
+    return default if _is_null(v) else float(v)
+
+def safe_int(v, default=80):
+    return default if _is_null(v) else int(float(v))
 
 PROPERTY_TYPES = [("SF", "Single Family House"), ("TH", "Townhouse"), ("AP", "Apartment/Unit"), ("RU", "Rural")]
 PROPERTY_TYPE_WEIGHTS = [0.50, 0.20, 0.25, 0.05]
@@ -85,8 +98,8 @@ def generate_record(row: dict, idx: int) -> dict:
     property_id = f"PROP-{idx:08d}"
 
     # Derive origination value from Freddie Mac LTV: value = UPB / (LTV/100)
-    orig_upb = float(row["ORIG_UPB"]) if row["ORIG_UPB"] else 400_000
-    orig_ltv = int(row["ORIG_LTV"]) if row["ORIG_LTV"] else 80
+    orig_upb = safe_float(row["ORIG_UPB"], 400_000.0)
+    orig_ltv = safe_int(row["ORIG_LTV"], 80)
     orig_val = round(orig_upb / (orig_ltv / 100), -3) if orig_ltv > 0 else orig_upb * 1.25
 
     # AVM drift: current value ± 20% from origination
