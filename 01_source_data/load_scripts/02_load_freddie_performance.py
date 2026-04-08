@@ -152,7 +152,10 @@ def load(limit: int | None = None, chunksize: int = 50000):
         chunk[str_cols] = chunk[str_cols].where(chunk[str_cols].notna(), None)
         chunk = chunk.dropna(subset=["LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD"])
 
-        # Normalise all cells to native Python types or None
+        # Normalise: astype(object) first to break out of StringDtype/Int64
+        # so pd.NA doesn't materialise as float during iteration, then
+        # to_python converts all remaining nan/NA to Python None
+        chunk = chunk.astype(object)
         for col in chunk.columns:
             chunk[col] = chunk[col].apply(to_python)
 

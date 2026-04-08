@@ -151,8 +151,12 @@ def load(limit: int | None = None):
     print(f"  Rows read: {len(df):,}")
 
     # Normalise all cells to native Python types or None.
-    # teradatasql infers batch parameter types from row 1 — any numpy type,
-    # pd.NA, or float NaN that differs from later rows causes Error 502.
+    # Step 1: astype(object) breaks out of pandas special dtypes (StringDtype,
+    #   Int64, Float64) so that None/NaN values are plain float('nan') in
+    #   object columns — not pd.NA which materialises as float when iterated.
+    # Step 2: to_python converts every remaining float nan to Python None and
+    #   unwraps any residual numpy scalars.
+    df = df.astype(object)
     for col in df.columns:
         df[col] = df[col].apply(to_python)
 
