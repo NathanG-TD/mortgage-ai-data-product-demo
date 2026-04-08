@@ -44,6 +44,11 @@ attributes in the enterprise domain model.
 | 25 | SERVICER_NAME | VARCHAR(60) | Y | Name of the entity currently servicing the loan. |
 | 26 | SUPER_CONFORMING_FLAG | CHAR(1) | Y | Indicates super-conforming mortgage. Y=Super Conforming, N=Not Super Conforming. |
 | 27 | PRE_RELIEF_REFINANCE_LSN | CHAR(12) | Y | Loan Sequence Number of the prior loan if this is a Relief Refinance loan. Null otherwise. |
+| 28 | PROGRAM_INDICATOR | CHAR(1) | Y | Freddie Mac affordable lending program indicator. H=Home Possible. Null if standard loan. |
+| 29 | HARP_INDICATOR | CHAR(1) | Y | Home Affordable Refinance Program indicator. Y=HARP loan. Null if not a HARP refinance. |
+| 30 | PROPERTY_VALUATION_METHOD | CHAR(1) | Y | Valuation method. 1=ACE (no appraisal), 2=Traditional appraisal, 3=ACE+ PDR. |
+| 31 | INTEREST_ONLY_INDICATOR | CHAR(1) | Y | Y=Interest-only period applies, N=Fully amortising. |
+| 32 | MI_CANCELLATION_INDICATOR | CHAR(1) | Y | Mortgage Insurance cancellation status indicator. See Freddie Mac data dictionary for current code values. |
 
 ## Key Business Rules
 

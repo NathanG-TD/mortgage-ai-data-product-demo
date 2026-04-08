@@ -41,6 +41,12 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Freddie_Origination,
     SERVICER_NAME                   VARCHAR(60),
     SUPER_CONFORMING_FLAG           CHAR(1),
     PRE_RELIEF_REFINANCE_LSN        CHAR(12),
+    -- Columns 28-32: added in post-2018 Freddie Mac dataset format
+    PROGRAM_INDICATOR               CHAR(1),
+    HARP_INDICATOR                  CHAR(1),
+    PROPERTY_VALUATION_METHOD       CHAR(1),
+    INTEREST_ONLY_INDICATOR         CHAR(1),
+    MI_CANCELLATION_INDICATOR       CHAR(1),
     stg_load_timestamp              TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
 )
 PRIMARY INDEX (LOAN_SEQUENCE_NUMBER);
@@ -61,6 +67,11 @@ COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.LOAN_PURPOSE 
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.CHANNEL IS 'Origination channel. R=Retail (direct), B=Broker, C=Correspondent.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.PROPERTY_TYPE IS 'Property type code. SF=Single Family, CO=Condominium, PU=PUD, MH=Manufactured Home.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.FIRST_TIME_HOMEBUYER_FLAG IS 'Y if borrower is a first-time homebuyer (no ownership interest in principal residence in past 3 years), N otherwise.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.PROGRAM_INDICATOR IS 'Freddie Mac affordable lending program indicator. H=Home Possible. Null if not a designated program loan.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.HARP_INDICATOR IS 'Home Affordable Refinance Program indicator. Y=HARP loan. Null if not a HARP refinance.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.PROPERTY_VALUATION_METHOD IS 'Method used to value the property. 1=ACE (automated collateral evaluation — no appraisal), 2=Traditional appraisal, 3=ACE+ PDR.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.INTEREST_ONLY_INDICATOR IS 'Y if loan has an interest-only period, N otherwise.';
+COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Origination.MI_CANCELLATION_INDICATOR IS 'Mortgage Insurance cancellation indicator. Values vary by vintage — check Freddie Mac data dictionary for current codes.';
 
 -- -----------------------------------------------------------------------------
 -- STG_Freddie_Performance
