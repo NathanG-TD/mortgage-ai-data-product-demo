@@ -84,7 +84,7 @@ def generate_record(lsn: str, idx: int) -> dict:
         "Business Owner": (180_000, 120_000),
     }
     base, spread = income_bases[segment]
-    annual_income = max(30_000, round(rng.gauss(base, spread / 2), -3))
+    annual_income = float(max(30_000, round(rng.gauss(base, spread / 2), -3)))
 
     kyc_status = rng.choices(["Verified", "Pending", "Expired"], [0.88, 0.07, 0.05])[0]
     aml_rating = rng.choices(["L", "M", "H"], [0.75, 0.22, 0.03])[0]
