@@ -134,6 +134,12 @@ def load(limit: int | None = None):
     str_cols = df.select_dtypes(include="object").columns
     df[str_cols] = df[str_cols].apply(lambda c: c.str.strip())
 
+    # Convert nullable Int64 columns to native Python int/None — teradatasql
+    # does not accept numpy.int64 and will raise TypeError on insert
+    int_cols = [c for c in df.columns if str(df[c].dtype) == "Int64"]
+    for col in int_cols:
+        df[col] = df[col].apply(lambda x: None if pd.isna(x) else int(x))
+
     # Remove rows with no loan sequence number (should not occur, but defensive)
     df = df.dropna(subset=["LOAN_SEQUENCE_NUMBER"])
     print(f"  Rows after null-key drop: {len(df):,}")

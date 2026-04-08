@@ -139,6 +139,12 @@ def load(limit: int | None = None, chunksize: int = 50000):
         chunk[str_cols] = chunk[str_cols].apply(lambda c: c.str.strip())
         chunk = chunk.dropna(subset=["LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD"])
 
+        # Convert nullable Int64 columns to native Python int/None — teradatasql
+        # does not accept numpy.int64 and will raise TypeError on insert
+        int_cols = [c for c in chunk.columns if str(chunk[c].dtype) == "Int64"]
+        for col in int_cols:
+            chunk[col] = chunk[col].apply(lambda x: None if pd.isna(x) else int(x))
+
         tdml.copy_to_sql(
             df=chunk,
             table_name="STG_Freddie_Performance",

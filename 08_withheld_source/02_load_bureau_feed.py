@@ -56,6 +56,11 @@ def load():
     for col in date_cols:
         df[col] = pd.to_datetime(df[col], errors="coerce").dt.date
 
+    # Convert nullable Int64 columns to native Python int/None — teradatasql
+    # does not accept numpy.int64 and will raise TypeError on insert
+    for col in int_cols:
+        df[col] = df[col].apply(lambda x: None if pd.isna(x) else int(x))
+
     print(f"  Rows: {len(df):,}")
 
     print("Loading into MortgagePlatform_Staging.STG_Credit_Bureau_Feed ...")
