@@ -17,9 +17,29 @@ Usage:
 import os
 import sys
 import argparse
+import math
 import pandas as pd
 from dotenv import load_dotenv
 import teradataml as tdml
+
+
+def to_python(x):
+    """Convert any pandas/numpy scalar to a native Python type or None.
+
+    teradatasql infers batch parameter types from the first non-null value it
+    sees per column. Any numpy type, pd.NA, pd.NaT, or float NaN that leaks
+    through causes a batch type-mismatch error (Error 502). This function
+    ensures every cell is a plain Python str/int/float or None before the
+    DataFrame is handed to copy_to_sql.
+    """
+    if x is None or x is pd.NA or x is pd.NaT:
+        return None
+    if isinstance(x, float) and math.isnan(x):
+        return None
+    # Convert numpy scalars (int64, float64, bool_, etc.) to Python native
+    if hasattr(x, "item"):
+        return x.item()
+    return x
 
 # ---------------------------------------------------------------------------
 # Column definitions — positional, matching Freddie Mac file layout exactly
@@ -130,24 +150,11 @@ def load(limit: int | None = None):
     )
     print(f"  Rows read: {len(df):,}")
 
-    # Normalise: strip whitespace from string columns, then replace NaN with
-    # None. teradatasql infers column type from row 1 of each batch — if row 1
-    # has float NaN and row 2 has a string, it raises a batch type mismatch.
-    # Python None is sent as a consistent NULL regardless of column type.
-    str_cols = df.select_dtypes(include="object").columns
-    df[str_cols] = df[str_cols].apply(lambda c: c.str.strip())
-    df[str_cols] = df[str_cols].where(df[str_cols].notna(), None)
-
-    # Convert nullable Int64 columns to native Python int/None — teradatasql
-    # does not accept numpy.int64 and will raise TypeError on insert
-    int_cols = [c for c in df.columns if str(df[c].dtype) == "Int64"]
-    for col in int_cols:
-        df[col] = df[col].apply(lambda x: None if pd.isna(x) else int(x))
-
-    # Replace float NaN with None in float columns for the same batch-type
-    # consistency reason — NaN is FLOAT, None is NULL
-    float_cols = df.select_dtypes(include="float64").columns
-    df[float_cols] = df[float_cols].where(df[float_cols].notna(), None)
+    # Normalise all cells to native Python types or None.
+    # teradatasql infers batch parameter types from row 1 — any numpy type,
+    # pd.NA, or float NaN that differs from later rows causes Error 502.
+    for col in df.columns:
+        df[col] = df[col].apply(to_python)
 
     # Remove rows with no loan sequence number (should not occur, but defensive)
     df = df.dropna(subset=["LOAN_SEQUENCE_NUMBER"])

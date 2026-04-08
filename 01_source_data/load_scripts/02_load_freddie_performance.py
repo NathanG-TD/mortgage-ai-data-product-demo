@@ -19,9 +19,21 @@ Usage:
 import os
 import sys
 import argparse
+import math
 import pandas as pd
 from dotenv import load_dotenv
 import teradataml as tdml
+
+
+def to_python(x):
+    """Convert any pandas/numpy scalar to a native Python type or None."""
+    if x is None or x is pd.NA or x is pd.NaT:
+        return None
+    if isinstance(x, float) and math.isnan(x):
+        return None
+    if hasattr(x, "item"):
+        return x.item()
+    return x
 
 PERFORMANCE_COLUMNS = [
     "LOAN_SEQUENCE_NUMBER",
@@ -140,15 +152,9 @@ def load(limit: int | None = None, chunksize: int = 50000):
         chunk[str_cols] = chunk[str_cols].where(chunk[str_cols].notna(), None)
         chunk = chunk.dropna(subset=["LOAN_SEQUENCE_NUMBER", "MONTHLY_REPORTING_PERIOD"])
 
-        # Convert nullable Int64 columns to native Python int/None — teradatasql
-        # does not accept numpy.int64 and will raise TypeError on insert
-        int_cols = [c for c in chunk.columns if str(chunk[c].dtype) == "Int64"]
-        for col in int_cols:
-            chunk[col] = chunk[col].apply(lambda x: None if pd.isna(x) else int(x))
-
-        # Replace float NaN with None for batch-type consistency
-        float_cols = chunk.select_dtypes(include="float64").columns
-        chunk[float_cols] = chunk[float_cols].where(chunk[float_cols].notna(), None)
+        # Normalise all cells to native Python types or None
+        for col in chunk.columns:
+            chunk[col] = chunk[col].apply(to_python)
 
         tdml.copy_to_sql(
             df=chunk,
