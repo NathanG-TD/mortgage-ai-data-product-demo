@@ -118,7 +118,7 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Freddie_Performance,
 PRIMARY INDEX (LOAN_SEQUENCE_NUMBER, MONTHLY_REPORTING_PERIOD);
 
 COMMENT ON TABLE MortgagePlatform_Staging.STG_Freddie_Performance IS
-    'Staging: Freddie Mac Monthly Performance file. One record per loan per reporting month. Source system: Loan Servicing System. Maps to domain entities: LoanPerformance, LoanEvent, LoanModification. Key source for churn signals (delinquency escalation, zero balance codes) and fraud indicators.';
+    'Staging: Freddie Mac Monthly Performance file. Grain: loan x month. Source: Loan Servicing System. Maps to: LoanPerformance, LoanEvent, LoanModification. Key source for churn and fraud signals.';
 
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.LOAN_SEQUENCE_NUMBER IS 'Foreign key to STG_Freddie_Origination. Part of composite primary key.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Freddie_Performance.MONTHLY_REPORTING_PERIOD IS 'Reporting month in YYYYMM format. Part of composite primary key.';
@@ -139,7 +139,7 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Borrower_Profile,
 (
     CUSTOMER_ID                     VARCHAR(20)     NOT NULL,
     LOAN_SEQUENCE_NUMBER            CHAR(12)        NOT NULL,
-    TITLE                           VARCHAR(10),
+    CUSTOMER_TITLE                  VARCHAR(10),
     FIRST_NAME                      VARCHAR(50)     NOT NULL,
     LAST_NAME                       VARCHAR(50)     NOT NULL,
     DATE_OF_BIRTH                   DATE,
@@ -181,7 +181,7 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Borrower_Profile,
 PRIMARY INDEX (CUSTOMER_ID);
 
 COMMENT ON TABLE MortgagePlatform_Staging.STG_Borrower_Profile IS
-    'Staging: CRM Customer Master record. One record per customer. Source system: Customer Relationship Management (CRM). Maps to domain entities: Customer, CustomerContact, CustomerAddress, CustomerCompliance, CustomerInsight. Synthetic data generated to align with Freddie Mac loan population.';
+    'Staging: CRM Customer Master record. Grain: one per customer. Source: CRM system. Maps to: Customer, CustomerContact, CustomerAddress, CustomerCompliance, CustomerInsight. Synthetic data aligned to Freddie Mac loan population.';
 
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Borrower_Profile.CUSTOMER_ID IS 'Bank-assigned master customer identifier. Format: CUS-XXXXXXXX. Primary key. This is the enterprise customer key — all product systems should reference this.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Borrower_Profile.LOAN_SEQUENCE_NUMBER IS 'Foreign key to STG_Freddie_Origination. Join key between CRM and LOS.';
@@ -242,7 +242,7 @@ CREATE MULTISET TABLE MortgagePlatform_Staging.STG_Property_Valuation,
 PRIMARY INDEX (PROPERTY_ID);
 
 COMMENT ON TABLE MortgagePlatform_Staging.STG_Property_Valuation IS
-    'Staging: Collateral Management System property and valuation records. One record per property. Source system: Valuation/Collateral Management. Maps to domain entities: Property, PropertyValuation, PropertyRisk. Synthetic data generated with Australian property attributes.';
+    'Staging: Collateral Management System property and valuation records. Grain: one per property. Source: Valuation/Collateral system. Maps to: Property, PropertyValuation, PropertyRisk. Synthetic Australian property data.';
 
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Property_Valuation.PROPERTY_ID IS 'Bank-assigned unique property identifier. Format: PROP-XXXXXXXX. Primary key in collateral system.';
 COMMENT ON COLUMN MortgagePlatform_Staging.STG_Property_Valuation.ORIG_VALUATION_AMOUNT IS 'Formal valuation amount at loan origination in AUD. Should reconcile with ORIG_UPB/ORIG_LTV from STG_Freddie_Origination within rounding tolerance.';

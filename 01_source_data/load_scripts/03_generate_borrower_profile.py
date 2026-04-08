@@ -107,7 +107,7 @@ def generate_record(lsn: str, idx: int) -> dict:
     return {
         "CUSTOMER_ID": customer_id,
         "LOAN_SEQUENCE_NUMBER": lsn,
-        "TITLE": rng.choice(["Mr", "Mrs", "Ms", "Dr", None, None]),
+        "CUSTOMER_TITLE": rng.choice(["Mr", "Mrs", "Ms", "Dr", None, None]),
         "FIRST_NAME": fake_local.first_name(),
         "LAST_NAME": fake_local.last_name(),
         "DATE_OF_BIRTH": dob.isoformat(),

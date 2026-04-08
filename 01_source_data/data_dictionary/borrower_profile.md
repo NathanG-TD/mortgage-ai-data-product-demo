@@ -24,7 +24,7 @@ map to the Customer entity in the domain model.
 |-------------|------|----------|-------------|
 | CUSTOMER_ID | VARCHAR(20) | N | Bank-assigned unique customer identifier. Format: CUS-XXXXXXXX. Primary key. |
 | LOAN_SEQUENCE_NUMBER | CHAR(12) | N | Foreign key linking to Freddie Mac origination file. |
-| TITLE | VARCHAR(10) | Y | Customer salutation. Mr, Mrs, Ms, Dr, Prof. |
+| CUSTOMER_TITLE | VARCHAR(10) | Y | Customer salutation (renamed from TITLE — reserved word in Teradata). Mr, Mrs, Ms, Dr, Prof. |
 | FIRST_NAME | VARCHAR(50) | N | Customer first name. |
 | LAST_NAME | VARCHAR(50) | N | Customer last name (family name). |
 | DATE_OF_BIRTH | DATE | N | Customer date of birth. Format: YYYY-MM-DD. |
