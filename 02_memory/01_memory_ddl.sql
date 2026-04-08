@@ -388,16 +388,14 @@ COMMENT ON VIEW MortgagePlatform_Memory.v_active_sessions IS
 REPLACE VIEW MortgagePlatform_Memory.v_Current_Decisions AS
 SELECT * FROM MortgagePlatform_Memory.Design_Decision
 WHERE is_current = 1
-  AND decision_status <> 'DEPRECATED'
-ORDER BY source_module, decision_id;
+  AND decision_status <> 'DEPRECATED';
 
 COMMENT ON VIEW MortgagePlatform_Memory.v_Current_Decisions IS
 'All current non-deprecated architectural decisions for the MortgagePlatform data product';
 
 REPLACE VIEW MortgagePlatform_Memory.v_Module_Registry_Current AS
 SELECT * FROM MortgagePlatform_Memory.Module_Registry
-WHERE is_current = 1
-ORDER BY module_name;
+WHERE is_current = 1;
 
 COMMENT ON VIEW MortgagePlatform_Memory.v_Module_Registry_Current IS
 'Current version of each deployed module — reference for documentation generation and agent bootstrap';

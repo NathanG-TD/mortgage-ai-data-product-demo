@@ -174,8 +174,7 @@ WITH RECURSIVE path_cte (
     WHERE p.hop_count < 5
 )
 SELECT source_table, target_table, hop_count, path_tables, path_joins
-FROM path_cte
-ORDER BY source_table, hop_count;
+FROM path_cte;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_relationship_paths IS
 'Multi-hop join path discovery — find all paths between any two tables up to 5 hops; agents generate JOIN chains from path_joins column';
@@ -184,8 +183,7 @@ REPLACE VIEW MortgagePlatform_Semantic.v_entity_catalog AS
 SELECT module_name, entity_name, database_name, table_name, view_name,
        natural_key_column, surrogate_key_column, entity_description
 FROM MortgagePlatform_Semantic.entity_metadata
-WHERE is_active = 1
-ORDER BY module_name, entity_name;
+WHERE is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_entity_catalog IS
 'All active entities across all modules — agent overview of what tables exist and where';
@@ -201,8 +199,7 @@ COMMENT ON VIEW MortgagePlatform_Semantic.v_pii_columns IS
 REPLACE VIEW MortgagePlatform_Semantic.v_sensitive_columns AS
 SELECT database_name, table_name, column_name, business_description, is_pii
 FROM MortgagePlatform_Semantic.column_metadata
-WHERE is_sensitive = 1 AND is_active = 1
-ORDER BY database_name, table_name;
+WHERE is_sensitive = 1 AND is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_sensitive_columns IS
 'All sensitive columns (PII and regulated non-PII such as AML, bankruptcy) — agents must flag these in mapping outputs';
