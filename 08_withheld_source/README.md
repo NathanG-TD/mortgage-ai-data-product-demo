@@ -26,7 +26,7 @@ This creates the CSV at `08_withheld_source/bureau_feed.csv` (gitignored).
 Also pre-create the staging table so the load is instant during the demo:
 
 ```bash
-bteq < 08_withheld_source/00_create_bureau_staging_table.sql
+cat logon.txt 08_withheld_source/00_create_bureau_staging_table.sql | bteq
 ```
 
 ### During the Demo — Act 2 Sequence
@@ -41,7 +41,7 @@ bteq < 08_withheld_source/00_create_bureau_staging_table.sql
    ```
 6. Register the new source in the Semantic layer:
    ```bash
-   bteq < 08_withheld_source/03_bureau_semantic_registration.sql
+   cat logon.txt 08_withheld_source/03_bureau_semantic_registration.sql | bteq
    ```
 7. Show the enriched domain model — new attributes now visible on Customer and Loan
 

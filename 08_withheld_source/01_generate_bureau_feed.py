@@ -60,10 +60,10 @@ def connect():
 
 def fetch_customers() -> list[str]:
     print("Fetching CUSTOMER_IDs from STG_Borrower_Profile ...")
-    df = tdml.DataFrame.from_query(
+    result = tdml.execute_sql(
         "SELECT CUSTOMER_ID FROM MortgagePlatform_Staging.STG_Borrower_Profile"
-    ).to_pandas()
-    ids = df["CUSTOMER_ID"].tolist()
+    )
+    ids = [row[0].strip() for row in result if row[0]]
     print(f"  Found {len(ids):,} customers")
     return ids
 
