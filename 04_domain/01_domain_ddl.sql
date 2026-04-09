@@ -1080,3 +1080,533 @@ LEFT JOIN MortgagePlatform_Domain.CustomerCompliance_H cc  ON cc.customer_key   
 LEFT JOIN MortgagePlatform_Domain.KYCStatus_R          ks  ON ks.kyc_status_cd      = cc.kyc_status_cd
 LEFT JOIN MortgagePlatform_Domain.AMLRiskRating_R      ar  ON ar.aml_risk_rating_cd = cc.aml_risk_rating_cd;
 COMMENT ON VIEW MortgagePlatform_Domain.Customer_Enriched IS 'Enriched customer view - current customers with decoded segment, KYC compliance status and AML risk rating. Suitable for compliance dashboards and customer analytics.';
+
+-- =============================================================================
+-- SECTION 5: BIAN — COLLATERAL ASSET ADMINISTRATION
+--
+-- Source: MortgagePlatform_Staging.STG_Property_Valuation (37,500 rows)
+--
+-- Keymap pattern:
+--   Property_Keymap  — IDENTITY here; child entities use IDENTITY on _H
+--
+-- Temporal strategies:
+--   Type 2 SCD     : Property_H, PropertyAddress_H, PropertyRisk_H, PropertyTitle_H
+--   Append-only    : PropertyValuation_H (each valuation is a point-in-time event)
+--
+-- Note: FLOOD_RISK_ZONE in staging is VARCHAR(10) — "Overland Flow" is truncated
+--   to "Overland F". Domain table uses VARCHAR(15) to hold the full value;
+--   load script expands the truncated value.
+-- =============================================================================
+
+
+-- =============================================================================
+-- SECTION 5A: REFERENCE TABLES — Property
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.PropertyType_R (
+    property_type_key   BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_type_cd    CHAR(2)      CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    property_type_nm    VARCHAR(40)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    property_type_desc  VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    is_strata_eligible  BYTEINT NOT NULL DEFAULT 0,
+    sort_order          SMALLINT,
+    is_active           BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (property_type_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyType_R IS 'Reference: property type codes. Source: STG_Property_Valuation PROPERTY_TYPE_CODE. 4 types present in dataset; VA (Vacant Land) included for completeness.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.property_type_key  IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.property_type_cd   IS 'Two-character code: SF=Single Family House, TH=Townhouse, AP=Apartment/Unit, RU=Rural, VA=Vacant Land';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.property_type_nm   IS 'Short display name for reporting';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.property_type_desc IS 'Full description of this property type and its typical lending characteristics';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.is_strata_eligible IS '1=this property type may be on a strata/community title (AP, TH); 0=typically Torrens/freehold title';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.sort_order         IS 'Display sort order';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyType_R.is_active          IS '1=active code; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.PropertyType_R (property_type_cd, property_type_nm, property_type_desc, is_strata_eligible, sort_order, is_active) VALUES ('SF', 'Single Family House', 'Detached single-family residential dwelling on Torrens title land', 0, 1, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyType_R (property_type_cd, property_type_nm, property_type_desc, is_strata_eligible, sort_order, is_active) VALUES ('TH', 'Townhouse',           'Attached multi-level residential dwelling; may be strata or Torrens title', 1, 2, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyType_R (property_type_cd, property_type_nm, property_type_desc, is_strata_eligible, sort_order, is_active) VALUES ('AP', 'Apartment / Unit',    'Strata-titled residential unit within a multi-storey building', 1, 3, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyType_R (property_type_cd, property_type_nm, property_type_desc, is_strata_eligible, sort_order, is_active) VALUES ('RU', 'Rural',               'Rural or semi-rural residential property; may include hobby farm or acreage', 0, 4, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyType_R (property_type_cd, property_type_nm, property_type_desc, is_strata_eligible, sort_order, is_active) VALUES ('VA', 'Vacant Land',         'Unimproved land parcel; not present in current dataset but included for completeness', 0, 5, 1);
+
+
+CREATE TABLE MortgagePlatform_Domain.ValuationMethod_R (
+    valuation_method_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    valuation_method_cd   VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    valuation_method_nm   VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    valuation_method_desc VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    is_physical_inspection BYTEINT NOT NULL DEFAULT 0,
+    apra_acceptable        BYTEINT NOT NULL DEFAULT 1,
+    sort_order             SMALLINT,
+    is_active              BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (valuation_method_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.ValuationMethod_R IS 'Reference: property valuation method codes. Source: STG_Property_Valuation ORIG_VALUATION_METHOD / CURRENT_VALUATION_METHOD. Informs LVR policy applicability under APRA APS112.';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.valuation_method_key   IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.valuation_method_cd    IS 'Valuation method code: Full, Kerbside, Desktop, AVM';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.valuation_method_nm    IS 'Short display name';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.valuation_method_desc  IS 'Description of the valuation methodology and when it is applied';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.is_physical_inspection IS '1=method involves a physical inspection of the property; 0=desktop or automated estimate only';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.apra_acceptable        IS '1=method acceptable for LVR calculation under APRA APS112; 0=may require supplementary full valuation';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.sort_order             IS 'Sort order by reliability/rigour (1=most rigorous)';
+COMMENT ON COLUMN MortgagePlatform_Domain.ValuationMethod_R.is_active              IS '1=active method; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.ValuationMethod_R (valuation_method_cd, valuation_method_nm, valuation_method_desc, is_physical_inspection, apra_acceptable, sort_order, is_active) VALUES ('Full',     'Full Valuation',  'Physical inspection by a licensed valuer; most rigorous method; required for high-LVR loans', 1, 1, 1, 1);
+INSERT INTO MortgagePlatform_Domain.ValuationMethod_R (valuation_method_cd, valuation_method_nm, valuation_method_desc, is_physical_inspection, apra_acceptable, sort_order, is_active) VALUES ('Kerbside', 'Kerbside',        'External-only inspection by licensed valuer; no internal access; used for lower-risk refinances', 1, 1, 2, 1);
+INSERT INTO MortgagePlatform_Domain.ValuationMethod_R (valuation_method_cd, valuation_method_nm, valuation_method_desc, is_physical_inspection, apra_acceptable, sort_order, is_active) VALUES ('Desktop',  'Desktop',         'Desk-based review using comparable sales data; no physical inspection; for low-LVR applications', 0, 1, 3, 1);
+INSERT INTO MortgagePlatform_Domain.ValuationMethod_R (valuation_method_cd, valuation_method_nm, valuation_method_desc, is_physical_inspection, apra_acceptable, sort_order, is_active) VALUES ('AVM',      'Automated Valuation Model', 'Algorithm-based estimate from sales data and property attributes; used for portfolio monitoring and refreshes', 0, 1, 4, 1);
+
+
+CREATE TABLE MortgagePlatform_Domain.PropertyStatus_R (
+    property_status_key   BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_status_cd    VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    property_status_nm    VARCHAR(40)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    property_status_desc  VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    is_active_security    BYTEINT NOT NULL DEFAULT 1,
+    sort_order            SMALLINT,
+    is_active             BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (property_status_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyStatus_R IS 'Reference: collateral property status codes. Source: STG_Property_Valuation PROPERTY_STATUS. Indicates current state of the security in the collateral management system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.property_status_key  IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.property_status_cd   IS 'Status code: Active, Released, Substituted, Sold';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.property_status_nm   IS 'Short display name';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.property_status_desc IS 'Description of what this status means for the collateral position';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.is_active_security   IS '1=property is still an active security against a loan; 0=security has been released or disposed';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.sort_order           IS 'Display sort order';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyStatus_R.is_active            IS '1=active status code; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.PropertyStatus_R (property_status_cd, property_status_nm, property_status_desc, is_active_security, sort_order, is_active) VALUES ('Active',      'Active',      'Property is an active security registered against a current mortgage loan', 1, 1, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyStatus_R (property_status_cd, property_status_nm, property_status_desc, is_active_security, sort_order, is_active) VALUES ('Released',    'Released',    'Mortgage has been discharged; security released to the borrower; title free of encumbrance', 0, 2, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyStatus_R (property_status_cd, property_status_nm, property_status_desc, is_active_security, sort_order, is_active) VALUES ('Substituted', 'Substituted', 'Original security replaced by an alternative property; prior to full release', 0, 3, 1);
+INSERT INTO MortgagePlatform_Domain.PropertyStatus_R (property_status_cd, property_status_nm, property_status_desc, is_active_security, sort_order, is_active) VALUES ('Sold',        'Sold',        'Property has been sold; typically following foreclosure or mortgagee-in-possession proceedings', 0, 4, 1);
+
+
+-- =============================================================================
+-- SECTION 5B: BIAN — COLLATERAL ASSET ADMINISTRATION — KEYMAP
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.Property_Keymap (
+    property_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_id   VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    source_system VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    created_dt    TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
+) UNIQUE PRIMARY INDEX (property_id);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.Property_Keymap IS 'Keymap: one row per unique security property. Surrogate key (IDENTITY) generated here and referenced by Property_H, Loan_H.property_key, and all property child entities. Natural key is PROPERTY_ID from Collateral Management System.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_Keymap.property_key  IS 'Surrogate key - generated once per property, stable across all SCD versions and child tables';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_Keymap.property_id   IS 'Natural key - PROPERTY_ID from Collateral Management System. Format: PROP-XXXXXXXX.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_Keymap.source_system IS 'Source system that originated this property record';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_Keymap.created_dt    IS 'Timestamp the property natural key was first registered in the keymap';
+
+
+-- =============================================================================
+-- SECTION 5C: BIAN — COLLATERAL ASSET ADMINISTRATION — HISTORY TABLES
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.Property_H (
+    property_key             BIGINT NOT NULL,
+    property_id              VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+
+    -- Cross-domain FKs (populated in load process)
+    loan_key                 BIGINT,
+    customer_key             BIGINT,
+
+    -- BIAN: Property Characteristics
+    property_type_cd         CHAR(2)      CHARACTER SET LATIN NOT CASESPECIFIC,
+    property_status_cd       VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    bedrooms                 SMALLINT,
+    bathrooms                DECIMAL(3,1),
+    car_spaces               SMALLINT,
+    land_area_sqm            DECIMAL(10,2),
+    floor_area_sqm           DECIMAL(10,2),
+    year_built               SMALLINT,
+    zoning_code              VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    council_area             VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Source tracking
+    source_system            VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key               VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt            DATE NOT NULL,
+    valid_to_dt              DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current               BYTEINT NOT NULL DEFAULT 1,
+    is_deleted               BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt               TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt               TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (property_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.Property_H IS 'BIAN: Collateral Asset Administration - core security property record. Type 2 SCD; captures property status and physical characteristics. Central entity for all property child tables. Source: STG_Property_Valuation. 37,500 properties in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.property_key       IS 'Surrogate key from Property_Keymap - stable across all SCD versions';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.property_id        IS 'Natural key - PROPERTY_ID from Collateral Management System. Same across all history versions.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.loan_key           IS 'FK to Loan_Keymap.loan_key - links security property to the mortgage loan it secures';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.customer_key       IS 'FK to Customer_Keymap.customer_key - links property to the borrower/owner';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.property_type_cd   IS 'FK to PropertyType_R - property type: SF/TH/AP/RU/VA';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.property_status_cd IS 'FK to PropertyStatus_R - current collateral status: Active/Released/Substituted/Sold';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.bedrooms           IS 'Number of bedrooms. Null if not assessed or not applicable.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.bathrooms          IS 'Number of bathrooms; 0.5 indicates toilet only. Null if not assessed.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.car_spaces         IS 'Number of covered or garage car spaces. Null if none or not assessed.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.land_area_sqm      IS 'Total land area in square metres. Null for strata/apartment titles where individual lot area is not defined.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.floor_area_sqm     IS 'Internal floor area in square metres.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.year_built         IS 'Year of original construction. Null if unknown.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.zoning_code        IS 'Local government area zoning classification (e.g. R1=General Residential, R2=Low Density). Null if unzoned or rural.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.council_area       IS 'Local government area (LGA) name. Used for geographic risk segmentation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.valid_from_dt      IS 'Date this version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.valid_to_dt        IS 'Date this version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.is_current         IS '1=current active version; use Property_Current view to filter.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.is_deleted         IS '1=soft-deleted; always filter WHERE is_deleted = 0.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.source_system      IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.source_key         IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.created_dt         IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Property_H.updated_dt         IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.PropertyAddress_H (
+    property_address_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_key          BIGINT NOT NULL,
+
+    -- BIAN: Property Address
+    street_number         VARCHAR(10) CHARACTER SET LATIN NOT CASESPECIFIC,
+    street_name           VARCHAR(80) CHARACTER SET LATIN NOT CASESPECIFIC,
+    street_type           VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    unit_number           VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    suburb                VARCHAR(60) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    state                 CHAR(3)     CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    postcode              CHAR(4)     CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+
+    -- Source tracking
+    source_system         VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key            VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt         DATE NOT NULL,
+    valid_to_dt           DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current            BYTEINT NOT NULL DEFAULT 1,
+    is_deleted            BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt            TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt            TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (property_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyAddress_H IS 'BIAN: Collateral Asset Administration - property physical address. Type 2 SCD child of Property_H. SCD versioning supports address corrections and subdivision events. Source: STG_Property_Valuation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.property_address_key IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.property_key         IS 'FK to Property_Keymap.property_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.street_number        IS 'Property street number including any prefix (e.g. 12A, 1/10).';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.street_name          IS 'Street name excluding street type (e.g. Pitt, George, Collins).';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.street_type          IS 'Street type abbreviation (St, Rd, Ave, Blvd, Dr, Ct, Pl).';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.unit_number          IS 'Unit or apartment number for strata properties. Null for standalone houses.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.suburb               IS 'Suburb or town name. Australian standard.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.state                IS 'Australian state abbreviation: NSW, VIC, QLD, SA, WA, TAS, ACT, NT.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.postcode             IS 'Australian 4-digit postcode.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.valid_from_dt        IS 'Date this address version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.valid_to_dt          IS 'Date this address was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.is_current           IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.is_deleted           IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.source_system        IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.source_key           IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.created_dt           IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyAddress_H.updated_dt           IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.PropertyValuation_H (
+    property_valuation_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_key            BIGINT NOT NULL,
+
+    -- BIAN: Valuation Event
+    valuation_type          VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    valuation_dt            DATE NOT NULL,
+    valuation_amount        DECIMAL(15,2) NOT NULL,
+    valuation_method_cd     VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    valuer_name             VARCHAR(80)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    estimated_lvr           DECIMAL(6,3),
+
+    -- Audit
+    loaded_dt               TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
+) PRIMARY INDEX (property_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyValuation_H IS 'BIAN: Collateral Asset Administration - append-only valuation event log. One row per valuation event per property. Two valuation types loaded from source: ORIGINAL (at origination) and CURRENT_AVM (most recent automated refresh). Immutable once inserted. Source: STG_Property_Valuation. Valuation range 33K-10.9M AUD in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.property_valuation_key IS 'Surrogate key - IDENTITY safe here (append-only; no SCD versioning)';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.property_key           IS 'FK to Property_Keymap.property_key - PI column; co-locates all valuations per property on same AMP';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuation_type         IS 'Event type: ORIGINAL=formal valuation at loan origination; CURRENT_AVM=most recent automated valuation model refresh';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuation_dt           IS 'Date the valuation was conducted or the AVM was run.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuation_amount       IS 'Assessed property value in AUD at this point in time. Range 33K-10.9M in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuation_method_cd    IS 'FK to ValuationMethod_R - method used: Full/Kerbside/Desktop/AVM';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuer_name            IS 'Name of the valuation firm for formal valuations. Null for AVM events.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.estimated_lvr          IS 'Estimated LVR at time of this valuation (current UPB / valuation_amount). Derived field; used for dynamic risk-weighted asset calculation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.loaded_dt              IS 'Timestamp this valuation row was loaded into the domain table.';
+
+
+CREATE TABLE MortgagePlatform_Domain.PropertyRisk_H (
+    property_risk_key         BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_key              BIGINT NOT NULL,
+
+    -- BIAN: Natural Hazard Risk
+    flood_risk_zone           VARCHAR(15) CHARACTER SET LATIN NOT CASESPECIFIC,
+    fire_risk_zone            VARCHAR(10) CHARACTER SET LATIN NOT CASESPECIFIC,
+    environmental_constraint  BYTEINT NOT NULL DEFAULT 0,
+
+    -- Source tracking
+    source_system             VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key                VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt             DATE NOT NULL,
+    valid_to_dt               DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current                BYTEINT NOT NULL DEFAULT 1,
+    is_deleted                BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt                TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt                TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (property_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyRisk_H IS 'BIAN: Collateral Asset Administration - natural hazard and environmental risk attributes. Type 2 SCD; versioned as climate risk assessments are updated. Critical for APRA risk-weighted asset calculation and lenders mortgage insurance pricing. Source: STG_Property_Valuation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.property_risk_key        IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.property_key             IS 'FK to Property_Keymap.property_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.flood_risk_zone          IS 'Flood risk classification: None, Low, Medium, High, Overland Flow. VARCHAR(15) to accommodate full "Overland Flow" value (source column truncated at 10 chars).';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.fire_risk_zone           IS 'Bushfire risk classification: None, Low, Medium, High, Extreme. Properties in High or Extreme zones require additional insurance assessment.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.environmental_constraint IS '1=environmental constraint or covenant applies to the title (e.g. heritage overlay, biodiversity corridor); 0=none known.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.valid_from_dt            IS 'Date this risk assessment version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.valid_to_dt              IS 'Date this version was superseded; 9999-12-31 = currently active assessment.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.is_current               IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.is_deleted               IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.source_system            IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.source_key               IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.created_dt               IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.updated_dt               IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.PropertyTitle_H (
+    property_title_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    property_key        BIGINT NOT NULL,
+
+    -- BIAN: Legal Title
+    title_reference     VARCHAR(40) CHARACTER SET LATIN NOT CASESPECIFIC,
+    lot_number          VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    plan_number         VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    strata_flag         BYTEINT NOT NULL DEFAULT 0,
+    heritage_listed     BYTEINT NOT NULL DEFAULT 0,
+
+    -- Source tracking
+    source_system       VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key          VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt       DATE NOT NULL,
+    valid_to_dt         DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current          BYTEINT NOT NULL DEFAULT 1,
+    is_deleted          BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt          TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt          TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (property_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyTitle_H IS 'BIAN: Collateral Asset Administration - legal title details. Type 2 SCD; versioned on title transfers, strata re-registration or plan amendments. Title reference confirms legal ownership and encumbrance registration. Source: STG_Property_Valuation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.property_title_key IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.property_key       IS 'FK to Property_Keymap.property_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.title_reference    IS 'Land title reference number as registered with the state land titles office.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.lot_number         IS 'Lot number on the deposited plan or strata plan.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.plan_number        IS 'Deposited plan (DP) or strata plan (SP) number.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.strata_flag        IS '1=strata or community title (mortgage registers over the lot, not the land); 0=Torrens or freehold title.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.heritage_listed    IS '1=property is heritage listed by local or state government; may affect development rights and insurance valuation.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.valid_from_dt      IS 'Date this title version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.valid_to_dt        IS 'Date this title version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.is_current         IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.is_deleted         IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.source_system      IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.source_key         IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.created_dt         IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.PropertyTitle_H.updated_dt         IS 'Timestamp this row was last modified.';
+
+
+-- =============================================================================
+-- SECTION 5D: VIEWS — Property
+-- =============================================================================
+
+REPLACE VIEW MortgagePlatform_Domain.Property_Current AS
+SELECT * FROM MortgagePlatform_Domain.Property_H
+WHERE is_current = 1 AND is_deleted = 0;
+COMMENT ON VIEW MortgagePlatform_Domain.Property_Current IS 'Current active security properties - is_current=1 and is_deleted=0. Use for standard reporting and joins.';
+
+REPLACE VIEW MortgagePlatform_Domain.PropertyValuation_Latest AS
+SELECT pv.*
+FROM MortgagePlatform_Domain.PropertyValuation_H pv
+INNER JOIN (
+    SELECT property_key, MAX(valuation_dt) AS max_val_dt
+    FROM MortgagePlatform_Domain.PropertyValuation_H
+    GROUP BY property_key
+) mx ON mx.property_key = pv.property_key AND mx.max_val_dt = pv.valuation_dt;
+COMMENT ON VIEW MortgagePlatform_Domain.PropertyValuation_Latest IS 'Most recent valuation event per property - current estimated market value. Use for current LVR calculation and portfolio risk reporting.';
+
+REPLACE VIEW MortgagePlatform_Domain.Property_Enriched AS
+SELECT
+    p.*,
+    pt.property_type_nm          AS property_type_name,
+    pt.is_strata_eligible        AS type_strata_eligible,
+    ps.property_status_nm        AS property_status_name,
+    ps.is_active_security        AS is_active_security,
+    pa.suburb                    AS address_suburb,
+    pa.state                     AS address_state,
+    pa.postcode                  AS address_postcode,
+    pv.valuation_amount          AS latest_valuation_amount,
+    pv.valuation_dt              AS latest_valuation_dt,
+    pv.valuation_method_cd       AS latest_valuation_method,
+    pv.estimated_lvr             AS latest_estimated_lvr,
+    pr.flood_risk_zone           AS flood_risk_zone,
+    pr.fire_risk_zone            AS fire_risk_zone
+FROM MortgagePlatform_Domain.Property_Current p
+LEFT JOIN MortgagePlatform_Domain.PropertyType_R     pt  ON pt.property_type_cd  = p.property_type_cd
+LEFT JOIN MortgagePlatform_Domain.PropertyStatus_R   ps  ON ps.property_status_cd = p.property_status_cd
+LEFT JOIN MortgagePlatform_Domain.PropertyAddress_H  pa  ON pa.property_key = p.property_key AND pa.is_current = 1 AND pa.is_deleted = 0
+LEFT JOIN MortgagePlatform_Domain.PropertyValuation_Latest pv ON pv.property_key = p.property_key
+LEFT JOIN MortgagePlatform_Domain.PropertyRisk_H     pr  ON pr.property_key = p.property_key AND pr.is_current = 1 AND pr.is_deleted = 0;
+COMMENT ON VIEW MortgagePlatform_Domain.Property_Enriched IS 'Enriched property view - current properties with decoded type, status, current address, latest valuation amount and natural hazard risk zones. Suitable for collateral management dashboards and APRA capital reporting.';
+
+-- =============================================================================
+-- SECTION 6: BIAN — PAYMENT
+--            BIAN — CUSTOMER STATEMENT
+--            BIAN — PRODUCT DIRECTORY
+--
+-- Source coverage:
+--   Payment         — no direct payment transaction source; Payment_H is
+--                     populated by derivation from LoanPerformance_H (UPB
+--                     movement x period). Scaffolded for the demo lineage story.
+--   Customer Statement — LoanStatement_H populated from LoanPerformance_H
+--                     snapshots. Models the periodic statement sent to borrower.
+--   Product Directory  — MortgageProduct_R is a reference catalogue derived
+--                     from origination data (all loans FRM, terms 96-360 months).
+--
+-- No keymaps for Payment_H or LoanStatement_H: these are append-only event
+-- tables whose surrogate keys are never FK-referenced by other domain tables.
+-- =============================================================================
+
+
+-- =============================================================================
+-- SECTION 6A: BIAN — PAYMENT
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.Payment_H (
+    payment_key           BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    loan_key              BIGINT NOT NULL,
+
+    -- BIAN: Payment Event
+    payment_period_dt     DATE NOT NULL,
+    payment_type_cd       VARCHAR(20)   CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    opening_upb           DECIMAL(15,2),
+    closing_upb           DECIMAL(15,2),
+    principal_component   DECIMAL(15,2),
+    interest_component    DECIMAL(15,2),
+    total_payment         DECIMAL(15,2),
+    delinquency_status_cd VARCHAR(3)    CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Source tracking
+    source_system         VARCHAR(50) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Audit
+    loaded_dt             TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
+) PRIMARY INDEX (loan_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.Payment_H IS 'BIAN: Payment - append-only payment event log. One row per loan per reporting month. Populated by derivation from LoanPerformance_H: principal_component = opening_upb - closing_upb; interest_component = opening_upb x (current_interest_rate / 12 / 100). Supports the settlement drawdown and monthly repayment stories in the demo. Immutable once inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.payment_key           IS 'Surrogate key - IDENTITY safe here (append-only; no SCD versioning; no cross-table FK references to this key)';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.loan_key              IS 'FK to Loan_Keymap.loan_key - PI column; co-locates all payments for a loan on same AMP';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.payment_period_dt     IS 'First day of the monthly reporting period for which this payment event was derived.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.payment_type_cd       IS 'Payment event type: SCHEDULED=regular monthly repayment; DRAWDOWN=initial settlement funding; PREPAYMENT=lump sum payment reducing principal.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.opening_upb           IS 'Unpaid principal balance at the start of the payment period (prior month closing balance).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.closing_upb           IS 'Unpaid principal balance at the end of the payment period (from LoanPerformance_H.current_actual_upb).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.principal_component   IS 'Principal portion of the payment: opening_upb - closing_upb. Null for periods where balance increased (e.g. capitalised interest).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.interest_component    IS 'Interest portion: opening_upb x (current_interest_rate / 12 / 100). Derived estimate; actual interest may differ for modified loans.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.total_payment         IS 'Total payment amount for the period: principal_component + interest_component.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.delinquency_status_cd IS 'FK to DelinquencyStatus_R - delinquency status in this payment period. Provides lineage from payment behaviour to delinquency classification.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.source_system         IS 'Source system from which this payment event was derived.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.loaded_dt             IS 'Timestamp this payment row was loaded into the domain table.';
+
+
+-- =============================================================================
+-- SECTION 6B: BIAN — CUSTOMER STATEMENT
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.LoanStatement_H (
+    statement_key         BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    loan_key              BIGINT NOT NULL,
+    customer_key          BIGINT,
+
+    -- BIAN: Statement
+    statement_period_dt   DATE NOT NULL,
+    statement_dt          DATE NOT NULL,
+    opening_balance       DECIMAL(15,2),
+    closing_balance       DECIMAL(15,2),
+    interest_charged      DECIMAL(15,2),
+    principal_paid        DECIMAL(15,2),
+    total_paid            DECIMAL(15,2),
+    delinquency_status_cd VARCHAR(3) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Source tracking
+    source_system         VARCHAR(50) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Audit
+    loaded_dt             TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
+) PRIMARY INDEX (loan_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.LoanStatement_H IS 'BIAN: Customer Statement - append-only monthly loan statement record. One row per loan per statement period. Derived from LoanPerformance_H and Payment_H. Provides the clean audit trail for the regulatory lineage demo story: statement_row -> Payment_H -> LoanPerformance_H -> Loan_H -> LoanApplication_H. Immutable once inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.statement_key         IS 'Surrogate key - IDENTITY safe here (append-only; no cross-table FK references to this key)';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.loan_key              IS 'FK to Loan_Keymap.loan_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.customer_key          IS 'FK to Customer_Keymap.customer_key - the borrower this statement was issued to';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.statement_period_dt   IS 'First day of the statement period (typically monthly).';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.statement_dt          IS 'Date the statement was generated and dispatched to the customer.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.opening_balance       IS 'Loan balance at the start of the statement period.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.closing_balance       IS 'Loan balance at the end of the statement period.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.interest_charged      IS 'Total interest charged during the statement period.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.principal_paid        IS 'Total principal repaid during the statement period.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.total_paid            IS 'Total amount paid during the statement period: principal_paid + interest_charged.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.delinquency_status_cd IS 'FK to DelinquencyStatus_R - delinquency status as at statement date. Included for APRA regulatory reporting lineage.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.source_system         IS 'Source system from which this statement was derived.';
+COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.loaded_dt             IS 'Timestamp this statement row was loaded into the domain table.';
+
+REPLACE VIEW MortgagePlatform_Domain.LoanStatement_Latest AS
+SELECT ls.*
+FROM MortgagePlatform_Domain.LoanStatement_H ls
+INNER JOIN (
+    SELECT loan_key, MAX(statement_period_dt) AS max_period
+    FROM MortgagePlatform_Domain.LoanStatement_H
+    GROUP BY loan_key
+) mx ON mx.loan_key = ls.loan_key AND mx.max_period = ls.statement_period_dt;
+COMMENT ON VIEW MortgagePlatform_Domain.LoanStatement_Latest IS 'Most recent monthly statement per loan - current statement position. Use for customer-facing balance enquiries and arrears notifications.';
+
+
+-- =============================================================================
+-- SECTION 6C: BIAN — PRODUCT DIRECTORY
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.MortgageProduct_R (
+    mortgage_product_key         BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    product_cd                   VARCHAR(30)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    product_nm                   VARCHAR(80)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    product_desc                 VARCHAR(400) CHARACTER SET LATIN NOT CASESPECIFIC,
+    amortization_type_cd         VARCHAR(5)   CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    standard_loan_term_months    SMALLINT NOT NULL,
+    is_interest_only_available   BYTEINT NOT NULL DEFAULT 0,
+    sort_order                   SMALLINT,
+    is_active                    BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (product_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.MortgageProduct_R IS 'BIAN: Product Directory - mortgage product catalogue. Reference table defining the standard product types from which individual loans are originated. Derived from origination data: all loans in dataset are FRM with terms 96-360 months. product_cd is the FK stored in Loan_H to link loan instances back to their product.';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.mortgage_product_key       IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.product_cd                 IS 'Product code stored in Loan_H - identifies the product this loan was originated under';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.product_nm                 IS 'Short product display name for customer-facing and reporting use';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.product_desc               IS 'Full product description including key features, standard LVR limits and target borrower profile';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.amortization_type_cd       IS 'FK to AmortizationType_R - the amortisation structure of this product: FRM or ARM';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.standard_loan_term_months  IS 'Standard loan term in months for this product (e.g. 360=30yr, 300=25yr, 240=20yr, 180=15yr)';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.is_interest_only_available IS '1=an interest-only period can be structured into this product; 0=fully amortising only';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.sort_order                 IS 'Display sort order - typically longest term first';
+COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.is_active                  IS '1=product currently available for origination; 0=closed to new lending (legacy product)';
+
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_FRM_30Y', 'Home Loan Fixed 30yr', 'Standard 30-year fixed rate principal and interest home loan. Highest loan term available; lowest regular repayments. Suitable for first home buyers and owner-occupiers seeking payment certainty.', 'FRM', 360, 1, 1, 1);
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_FRM_25Y', 'Home Loan Fixed 25yr', 'Standard 25-year fixed rate principal and interest home loan. Balanced term offering moderate repayments with faster equity building than 30-year product.', 'FRM', 300, 1, 2, 1);
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_FRM_20Y', 'Home Loan Fixed 20yr', 'Standard 20-year fixed rate principal and interest home loan. Suitable for borrowers with higher repayment capacity seeking faster equity build.', 'FRM', 240, 0, 3, 1);
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_FRM_15Y', 'Home Loan Fixed 15yr', 'Standard 15-year fixed rate principal and interest home loan. Higher repayments; significantly lower total interest cost; suitable for refinancers with strong cash flow.', 'FRM', 180, 0, 4, 1);
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_FRM_OTHER', 'Home Loan Fixed (Other Term)', 'Fixed rate home loan with a non-standard term. Includes loans with terms outside the standard 15/20/25/30 year brackets (range 8-29 years in dataset).', 'FRM', 0, 0, 5, 1);
+INSERT INTO MortgagePlatform_Domain.MortgageProduct_R (product_cd, product_nm, product_desc, amortization_type_cd, standard_loan_term_months, is_interest_only_available, sort_order, is_active) VALUES ('HOME_LOAN_ARM_30Y',  'Home Loan Variable 30yr', 'Standard 30-year adjustable rate home loan. Interest rate resets periodically; initial rate typically below FRM equivalent. Not present in current dataset; included for product catalogue completeness.', 'ARM', 360, 1, 6, 1);
