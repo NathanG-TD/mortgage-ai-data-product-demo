@@ -572,3 +572,511 @@ COMMENT ON COLUMN MortgagePlatform_Domain.LoanModification_H.modification_cost  
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanModification_H.current_month_modification_cost IS 'Modification cost allocated to this specific reporting month';
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanModification_H.modification_status             IS 'Status: ACTIVE=in effect, COMPLETED=terms met, CANCELLED=rolled back';
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanModification_H.created_dt                      IS 'Timestamp this modification record was inserted';
+
+-- =============================================================================
+-- SECTION 4: BIAN — PARTY REFERENCE DATA MANAGEMENT
+--            BIAN — CUSTOMER PROFILE
+--            BIAN — CUSTOMER CREDIT RATING
+--
+-- Source: MortgagePlatform_Staging.STG_Borrower_Profile (37,500 rows)
+--
+-- Keymap pattern:
+--   Customer_Keymap  — IDENTITY here; all child entities use IDENTITY on _H
+--   (CustomerContact, CustomerAddress, CustomerSegment, CustomerFinancial,
+--    CustomerCompliance, CustomerInsight are child entities; nothing else
+--    FK-references their surrogate keys, so IDENTITY on _H is safe)
+--
+-- BIAN alignment:
+--   Party Reference Data Management  : Customer_H, CustomerContact_H, CustomerAddress_H
+--   Customer Profile                 : CustomerSegment_H, CustomerFinancial_H, CustomerInsight_H
+--   Customer Credit Rating           : CustomerCompliance_H
+-- =============================================================================
+
+
+-- =============================================================================
+-- SECTION 4A: REFERENCE TABLES — Customer
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.CustomerSegment_R (
+    customer_segment_key        BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    segment_cd                  VARCHAR(30)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    segment_nm                  VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    segment_desc                VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    wealth_tier_order           SMALLINT,
+    relationship_manager_flag   BYTEINT NOT NULL DEFAULT 0,
+    sort_order                  SMALLINT,
+    is_active                   BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (segment_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerSegment_R IS 'Reference: CRM customer segment classification. Source: Borrower Profile CUSTOMER_SEGMENT. Used for portfolio segmentation and RM assignment rules.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.customer_segment_key      IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.segment_cd                IS 'Segment code - full-name string matching the source system value (e.g. Mass Market, Affluent)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.segment_nm                IS 'Short display name for reports and dashboards';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.segment_desc              IS 'Business description of the customer segment and its qualifying criteria';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.wealth_tier_order         IS 'Wealth tier ranking: 1=lowest (Mass Market), 5=highest (Private Banking). Used for ascending wealth sort.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.relationship_manager_flag IS '1=a dedicated relationship manager is assigned at this segment tier; 0=self-service or branch only';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.sort_order                IS 'Display sort order';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_R.is_active                 IS '1=active segment in use; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.CustomerSegment_R (segment_cd, segment_nm, segment_desc, wealth_tier_order, relationship_manager_flag, sort_order, is_active) VALUES ('Mass Market',      'Mass Market',      'Retail banking customers with standard product holdings and self-service engagement model', 1, 0, 1, 1);
+INSERT INTO MortgagePlatform_Domain.CustomerSegment_R (segment_cd, segment_nm, segment_desc, wealth_tier_order, relationship_manager_flag, sort_order, is_active) VALUES ('Emerging Affluent','Emerging Affluent','Customers with growing wealth and income; transitioning to full Affluent tier', 2, 0, 2, 1);
+INSERT INTO MortgagePlatform_Domain.CustomerSegment_R (segment_cd, segment_nm, segment_desc, wealth_tier_order, relationship_manager_flag, sort_order, is_active) VALUES ('Affluent',         'Affluent',         'High income or high net worth customers eligible for premium products and RM service', 3, 1, 3, 1);
+INSERT INTO MortgagePlatform_Domain.CustomerSegment_R (segment_cd, segment_nm, segment_desc, wealth_tier_order, relationship_manager_flag, sort_order, is_active) VALUES ('Private Banking',  'Private Banking',  'Ultra-high net worth customers receiving bespoke wealth management and private banking services', 4, 1, 4, 1);
+INSERT INTO MortgagePlatform_Domain.CustomerSegment_R (segment_cd, segment_nm, segment_desc, wealth_tier_order, relationship_manager_flag, sort_order, is_active) VALUES ('Business Owner',   'Business Owner',   'Small to medium business owners; may have both personal and business banking relationships', 3, 1, 5, 1);
+
+
+CREATE TABLE MortgagePlatform_Domain.EmploymentStatus_R (
+    employment_status_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    employment_status_cd   VARCHAR(30)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    employment_status_nm   VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    employment_status_desc VARCHAR(200) CHARACTER SET LATIN NOT CASESPECIFIC,
+    is_income_stable       BYTEINT NOT NULL DEFAULT 1,
+    sort_order             SMALLINT,
+    is_active              BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (employment_status_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.EmploymentStatus_R IS 'Reference: borrower employment status. Source: Borrower Profile EMPLOYMENT_STATUS. Informs income verification requirements and serviceability assessment.';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.employment_status_key  IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.employment_status_cd   IS 'Employment status code - full-name string matching source system value';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.employment_status_nm   IS 'Short display name';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.employment_status_desc IS 'Business description of this employment status category';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.is_income_stable       IS '1=income is regular and verifiable via payslip; 0=variable or irregular income requiring additional assessment';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.sort_order             IS 'Display sort order';
+COMMENT ON COLUMN MortgagePlatform_Domain.EmploymentStatus_R.is_active              IS '1=active code; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Full-time',    'Full-time',    'Permanently employed full-time; income verified via payslip or PAYG summary', 1, 1, 1);
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Part-time',    'Part-time',    'Permanently employed part-time; income verified via payslip; hours may vary', 1, 2, 1);
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Contractor',   'Contractor',   'Fixed-term or ongoing contract; income verified via contract and tax returns', 0, 3, 1);
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Self-employed','Self-employed','Business owner or sole trader; income verified via two years tax returns and financials', 0, 4, 1);
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Retired',      'Retired',      'No active employment; income from superannuation, pension or investments', 1, 5, 1);
+INSERT INTO MortgagePlatform_Domain.EmploymentStatus_R (employment_status_cd, employment_status_nm, employment_status_desc, is_income_stable, sort_order, is_active) VALUES ('Unemployed',   'Unemployed',   'Not currently employed; not present in current dataset but included for completeness', 0, 6, 1);
+
+
+CREATE TABLE MortgagePlatform_Domain.KYCStatus_R (
+    kyc_status_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    kyc_status_cd   VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    kyc_status_nm   VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    kyc_status_desc VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    is_compliant    BYTEINT NOT NULL DEFAULT 0,
+    requires_action BYTEINT NOT NULL DEFAULT 0,
+    sort_order      SMALLINT,
+    is_active       BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (kyc_status_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.KYCStatus_R IS 'Reference: Know Your Customer verification status. Source: Borrower Profile KYC_STATUS. Expired and Pending require remediation under AML/CTF Act obligations.';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.kyc_status_key  IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.kyc_status_cd   IS 'KYC status code matching source system value: Verified, Pending, Expired, Failed';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.kyc_status_nm   IS 'Short display name';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.kyc_status_desc IS 'Description of what this KYC status means and its regulatory implications';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.is_compliant    IS '1=customer is KYC-compliant and can transact normally; 0=remediation or restriction may apply';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.requires_action IS '1=compliance team action required to resolve; 0=no action needed';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.sort_order      IS 'Display sort order';
+COMMENT ON COLUMN MortgagePlatform_Domain.KYCStatus_R.is_active       IS '1=active status code; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.KYCStatus_R (kyc_status_cd, kyc_status_nm, kyc_status_desc, is_compliant, requires_action, sort_order, is_active) VALUES ('Verified', 'Verified', 'Customer identity verified against acceptable documents; AML/CTF obligations met', 1, 0, 1, 1);
+INSERT INTO MortgagePlatform_Domain.KYCStatus_R (kyc_status_cd, kyc_status_nm, kyc_status_desc, is_compliant, requires_action, sort_order, is_active) VALUES ('Pending',  'Pending',  'KYC documents submitted but verification not yet complete; restricted transacting may apply', 0, 1, 2, 1);
+INSERT INTO MortgagePlatform_Domain.KYCStatus_R (kyc_status_cd, kyc_status_nm, kyc_status_desc, is_compliant, requires_action, sort_order, is_active) VALUES ('Expired',  'Expired',  'KYC verification has lapsed; re-verification required under periodic review obligations', 0, 1, 3, 1);
+INSERT INTO MortgagePlatform_Domain.KYCStatus_R (kyc_status_cd, kyc_status_nm, kyc_status_desc, is_compliant, requires_action, sort_order, is_active) VALUES ('Failed',   'Failed',   'KYC verification failed; customer identity could not be confirmed; escalation required', 0, 1, 4, 1);
+
+
+CREATE TABLE MortgagePlatform_Domain.AMLRiskRating_R (
+    aml_risk_rating_key    BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    aml_risk_rating_cd     CHAR(1)      CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    aml_risk_rating_nm     VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    aml_risk_rating_desc   VARCHAR(300) CHARACTER SET LATIN NOT CASESPECIFIC,
+    enhanced_due_diligence BYTEINT NOT NULL DEFAULT 0,
+    sort_order             SMALLINT,
+    is_active              BYTEINT NOT NULL DEFAULT 1
+) UNIQUE PRIMARY INDEX (aml_risk_rating_cd);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.AMLRiskRating_R IS 'Reference: Anti-Money Laundering risk rating. Source: Borrower Profile AML_RISK_RATING. L=Low, M=Medium, H=High. Regulated field under AML/CTF Act; H rating requires Enhanced Due Diligence.';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.aml_risk_rating_key    IS 'Surrogate key - system-generated identity';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.aml_risk_rating_cd     IS 'Single-character code: L=Low, M=Medium, H=High';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.aml_risk_rating_nm     IS 'Short display name';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.aml_risk_rating_desc   IS 'Description of risk level and required customer due diligence actions';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.enhanced_due_diligence IS '1=Enhanced Due Diligence required under AML/CTF Act obligations; 0=standard CDD sufficient';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.sort_order             IS 'Display sort order - 1=lowest risk';
+COMMENT ON COLUMN MortgagePlatform_Domain.AMLRiskRating_R.is_active              IS '1=active rating in use; 0=deprecated';
+
+INSERT INTO MortgagePlatform_Domain.AMLRiskRating_R (aml_risk_rating_cd, aml_risk_rating_nm, aml_risk_rating_desc, enhanced_due_diligence, sort_order, is_active) VALUES ('L', 'Low',    'Standard risk customer; no unusual transaction patterns or adverse intelligence; standard CDD applies', 0, 1, 1);
+INSERT INTO MortgagePlatform_Domain.AMLRiskRating_R (aml_risk_rating_cd, aml_risk_rating_nm, aml_risk_rating_desc, enhanced_due_diligence, sort_order, is_active) VALUES ('M', 'Medium', 'Moderate risk; some elevated indicators (e.g. complex income structure, offshore connections); heightened monitoring', 0, 2, 1);
+INSERT INTO MortgagePlatform_Domain.AMLRiskRating_R (aml_risk_rating_cd, aml_risk_rating_nm, aml_risk_rating_desc, enhanced_due_diligence, sort_order, is_active) VALUES ('H', 'High',   'High risk customer; Enhanced Due Diligence required; senior approval needed for onboarding or continuation', 1, 3, 1);
+
+
+-- =============================================================================
+-- SECTION 4B: BIAN — PARTY REFERENCE DATA MANAGEMENT
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.Customer_Keymap (
+    customer_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_id   VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    source_system VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    created_dt    TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
+) UNIQUE PRIMARY INDEX (customer_id);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.Customer_Keymap IS 'Keymap: one row per unique customer. Surrogate key (IDENTITY) generated here and referenced by Customer_H, LoanApplication_H.customer_key, and Loan_H.customer_key. Natural key is CUSTOMER_ID from Borrower Profile.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_Keymap.customer_key  IS 'Surrogate key - generated once per customer, stable across all SCD versions and all referencing tables';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_Keymap.customer_id   IS 'Natural key - CUSTOMER_ID from CRM system. Format: CUS-XXXXXXXX.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_Keymap.source_system IS 'Source system that originated this customer record';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_Keymap.created_dt    IS 'Timestamp the customer natural key was first registered in the keymap';
+
+
+CREATE TABLE MortgagePlatform_Domain.Customer_H (
+    customer_key              BIGINT NOT NULL,
+    customer_id               VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+
+    -- FK to Loan Application (populated when linked in load process)
+    loan_application_key      BIGINT,
+
+    -- BIAN: Party Identity
+    customer_title            VARCHAR(10)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    first_name                VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    last_name                 VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    date_of_birth             DATE NOT NULL,
+    gender                    CHAR(1)      CHARACTER SET LATIN NOT CASESPECIFIC,
+    citizenship_status        VARCHAR(30)  CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- BIAN: Digital Engagement
+    digital_banking_enrolled  BYTEINT NOT NULL DEFAULT 0,
+    digital_banking_last_login DATE,
+
+    -- BIAN: Relationship
+    relationship_start_dt     DATE,
+    deceased_flag             BYTEINT NOT NULL DEFAULT 0,
+
+    -- Source record dates (from CRM)
+    record_source_created_dt  DATE,
+    record_source_updated_dt  DATE,
+
+    -- Source tracking
+    source_system             VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key                VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt             DATE NOT NULL,
+    valid_to_dt               DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current                BYTEINT NOT NULL DEFAULT 1,
+    is_deleted                BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt                TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt                TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.Customer_H IS 'BIAN: Party Reference Data Management - core customer identity record. Type 2 SCD. The enterprise master for customer identity; all child customer entities reference customer_key. Source: STG_Borrower_Profile. 37,500 customers, one per loan in this dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.customer_key              IS 'Surrogate key from Customer_Keymap - stable across all SCD versions';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.customer_id               IS 'Natural key - CUSTOMER_ID from CRM. Format: CUS-XXXXXXXX. Same across all history versions.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.loan_application_key      IS 'FK to LoanApplication_Keymap - links customer to their loan application; nullable for customers without a current application';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.customer_title            IS 'Salutation: Mr, Mrs, Ms, Dr, Prof. Renamed from TITLE (reserved word in Teradata).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.first_name                IS 'Customer given name(s).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.last_name                 IS 'Customer family name.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.date_of_birth             IS 'Customer date of birth. Range 1950-2004 in dataset. Used for age-based eligibility and regulatory reporting.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.gender                    IS 'Gender: M=Male, F=Female, X=Non-binary or Not Stated. Source CHAR(1) with trailing space - trim on load.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.citizenship_status        IS 'Australian citizenship or residency status. Values: Citizen, Permanent Resident, Temporary Resident, Non-Resident.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.digital_banking_enrolled  IS '1=customer is enrolled in digital banking; 0=not enrolled.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.digital_banking_last_login IS 'Date of most recent digital banking login. Null if never logged in or not enrolled.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.relationship_start_dt     IS 'Date the customer first became a customer of the bank (RELATIONSHIP_START_DATE in source).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.deceased_flag             IS '1=customer is recorded as deceased; 0=active. Deceased customers require special handling for estate management.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.record_source_created_dt  IS 'Date the CRM record was originally created in the source system (RECORD_CREATED_DATE).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.record_source_updated_dt  IS 'Date the CRM record was most recently updated in the source system (RECORD_LAST_UPDATED).';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.valid_from_dt             IS 'Date this version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.valid_to_dt               IS 'Date this version was superseded; 9999-12-31 = currently active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.is_current                IS '1=current active version; use Customer_Current view to filter.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.is_deleted                IS '1=soft-deleted; always filter WHERE is_deleted = 0 for active records.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.source_system             IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.source_key                IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.created_dt                IS 'Timestamp this row was inserted into the domain table.';
+COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.updated_dt                IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.CustomerContact_H (
+    customer_contact_key      BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key              BIGINT NOT NULL,
+
+    -- BIAN: Contact Details
+    email_address             VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+    mobile_number             VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    home_phone                VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    preferred_contact_channel VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Source tracking
+    source_system             VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key                VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt             DATE NOT NULL,
+    valid_to_dt               DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current                BYTEINT NOT NULL DEFAULT 1,
+    is_deleted                BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt                TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt                TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerContact_H IS 'BIAN: Party Reference Data Management - customer contact details. Type 2 SCD child of Customer_H; captures all communication channel details. Source: STG_Borrower_Profile. PI on customer_key for efficient join to parent.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.customer_contact_key      IS 'Surrogate key - IDENTITY safe here (child entity; no other table FK-references this key)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.customer_key              IS 'FK to Customer_Keymap.customer_key - PI column; co-locates contact record with parent customer';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.email_address             IS 'Primary email address for digital communications.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.mobile_number             IS 'Mobile phone number. Australian format: +61 4XX XXX XXX.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.home_phone                IS 'Home landline number.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.preferred_contact_channel IS 'Customer preferred communication channel. Values: Email, Mobile, Post, Branch.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.valid_from_dt             IS 'Date this contact version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.valid_to_dt               IS 'Date this contact version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.is_current                IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.is_deleted                IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.source_system             IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.source_key                IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.created_dt                IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerContact_H.updated_dt                IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.CustomerAddress_H (
+    customer_address_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key          BIGINT NOT NULL,
+
+    -- BIAN: Address
+    address_line_1        VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    address_line_2        VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+    suburb                VARCHAR(60)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    state                 CHAR(3)      CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    postcode              CHAR(4)      CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL,
+    address_type          VARCHAR(20)  CHARACTER SET LATIN NOT CASESPECIFIC NOT NULL DEFAULT 'RESIDENTIAL',
+
+    -- Source tracking
+    source_system         VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key            VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt         DATE NOT NULL,
+    valid_to_dt           DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current            BYTEINT NOT NULL DEFAULT 1,
+    is_deleted            BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt            TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt            TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerAddress_H IS 'BIAN: Party Reference Data Management - customer residential address. Type 2 SCD child of Customer_H. SCD versioning captures address changes over time (important for mail communications and fraud detection). Source: STG_Borrower_Profile.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.customer_address_key IS 'Surrogate key - IDENTITY safe here (child entity; no other table FK-references this key)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.customer_key         IS 'FK to Customer_Keymap.customer_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.address_line_1       IS 'Primary street address line including street number and name.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.address_line_2       IS 'Unit or apartment number; null for standalone properties.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.suburb               IS 'Suburb or town name.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.state                IS 'Australian state abbreviation: NSW, VIC, QLD, SA, WA, TAS, ACT, NT. 8 distinct values in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.postcode             IS 'Australian 4-digit postcode.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.address_type         IS 'Address classification: RESIDENTIAL (default), POSTAL, BUSINESS.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.valid_from_dt        IS 'Date this address version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.valid_to_dt          IS 'Date this address was superseded; 9999-12-31 = currently active address.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.is_current           IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.is_deleted           IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.source_system        IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.source_key           IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.created_dt           IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerAddress_H.updated_dt           IS 'Timestamp this row was last modified.';
+
+
+-- =============================================================================
+-- SECTION 4C: BIAN — CUSTOMER PROFILE
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.CustomerSegment_H (
+    customer_segment_key    BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key            BIGINT NOT NULL,
+
+    -- BIAN: Customer Segment / CRM
+    segment_cd              VARCHAR(30) CHARACTER SET LATIN NOT CASESPECIFIC,
+    branch_code             CHAR(6)     CHARACTER SET LATIN NOT CASESPECIFIC,
+    relationship_manager_id VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    last_contact_dt         DATE,
+    marketing_opt_in        BYTEINT NOT NULL DEFAULT 0,
+
+    -- Source tracking
+    source_system           VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key              VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt           DATE NOT NULL,
+    valid_to_dt             DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current              BYTEINT NOT NULL DEFAULT 1,
+    is_deleted              BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt              TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt              TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerSegment_H IS 'BIAN: Customer Profile - CRM segment, relationship management, and engagement attributes. Type 2 SCD; captures segment transitions over time (e.g. Mass Market to Emerging Affluent). Source: STG_Borrower_Profile.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.customer_segment_key    IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.customer_key            IS 'FK to Customer_Keymap.customer_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.segment_cd              IS 'FK to CustomerSegment_R.segment_cd - customer segment classification (Mass Market, Affluent, etc.)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.branch_code             IS 'Home branch code for branch-aligned customers. 6-character branch identifier.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.relationship_manager_id IS 'Employee ID of assigned relationship manager. Populated for Affluent, Private Banking, Business Owner segments.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.last_contact_dt         IS 'Date of most recent contact by the bank across any channel.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.marketing_opt_in        IS '1=customer has opted in to marketing communications; 0=opted out. Governed by Australian Privacy Act.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.valid_from_dt           IS 'Date this segment version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.valid_to_dt             IS 'Date this segment version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.is_current              IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.is_deleted              IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.source_system           IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.source_key              IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.created_dt              IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerSegment_H.updated_dt              IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.CustomerFinancial_H (
+    customer_financial_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key            BIGINT NOT NULL,
+
+    -- BIAN: Customer Financial Profile
+    annual_income           DECIMAL(15,2),
+    income_verified_flag    BYTEINT NOT NULL DEFAULT 0,
+    employment_status_cd    VARCHAR(30) CHARACTER SET LATIN NOT CASESPECIFIC,
+    employer_name           VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+    years_with_employer     DECIMAL(4,1),
+
+    -- Source tracking
+    source_system           VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key              VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt           DATE NOT NULL,
+    valid_to_dt             DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current              BYTEINT NOT NULL DEFAULT 1,
+    is_deleted              BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt              TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt              TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerFinancial_H IS 'BIAN: Customer Profile - income, employment, and financial capacity attributes. Type 2 SCD; captures changes in employment status and income over time. Source: STG_Borrower_Profile. Annual income range 30K-786K AUD in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.customer_financial_key IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.customer_key           IS 'FK to Customer_Keymap.customer_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.annual_income          IS 'Declared annual gross income in AUD at time of last review. Range 30K-786K in dataset.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.income_verified_flag   IS '1=income has been formally verified via payslip or tax return; 0=self-declared only.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.employment_status_cd   IS 'FK to EmploymentStatus_R - employment status at time of last review.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.employer_name          IS 'Name of employer at time of last review. Null for self-employed, retired, or unemployed.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.years_with_employer    IS 'Tenure with current employer in years (e.g. 2.5 = two and a half years).';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.valid_from_dt          IS 'Date this financial profile version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.valid_to_dt            IS 'Date this version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.is_current             IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.is_deleted             IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.source_system          IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.source_key             IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.created_dt             IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerFinancial_H.updated_dt             IS 'Timestamp this row was last modified.';
+
+
+CREATE TABLE MortgagePlatform_Domain.CustomerInsight_H (
+    customer_insight_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key          BIGINT NOT NULL,
+
+    -- BIAN: Customer Profile (analytically-derived attributes)
+    churn_risk_score      DECIMAL(5,2),
+    churn_risk_band       VARCHAR(10)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    nps_score             SMALLINT,
+
+    -- Source tracking
+    source_system         VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key            VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt         DATE NOT NULL,
+    valid_to_dt           DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current            BYTEINT NOT NULL DEFAULT 1,
+    is_deleted            BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt            TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt            TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerInsight_H IS 'BIAN: Customer Profile (analytically-derived) - model scores and survey-based metrics. Type 2 SCD; versioned as models are refreshed. These are model outputs loaded back into the domain, not raw CRM fields. Source: STG_Borrower_Profile.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.customer_insight_key IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.customer_key         IS 'FK to Customer_Keymap.customer_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.churn_risk_score     IS 'Model-generated churn propensity score. Range 0.00-1.00; higher = higher churn probability. Source: CHURN_RISK_SCORE.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.churn_risk_band      IS 'Banded churn risk label derived from score. Low (<0.30), Medium (0.30-0.60), High (>0.60).';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.nps_score            IS 'Net Promoter Score from most recent customer survey. Range -100 to 100; higher = more likely to recommend.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.valid_from_dt        IS 'Date this insight version became effective (model refresh date).';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.valid_to_dt          IS 'Date this version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.is_current           IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.is_deleted           IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.source_system        IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.source_key           IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.created_dt           IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerInsight_H.updated_dt           IS 'Timestamp this row was last modified.';
+
+
+-- =============================================================================
+-- SECTION 4D: BIAN — CUSTOMER CREDIT RATING
+-- =============================================================================
+
+CREATE TABLE MortgagePlatform_Domain.CustomerCompliance_H (
+    customer_compliance_key  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    customer_key             BIGINT NOT NULL,
+
+    -- BIAN: Customer Credit Rating / Compliance
+    kyc_status_cd            VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC,
+    kyc_verification_dt      DATE,
+    aml_risk_rating_cd       CHAR(1)     CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Source tracking
+    source_system            VARCHAR(50)  CHARACTER SET LATIN NOT CASESPECIFIC,
+    source_key               VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC,
+
+    -- Temporal (Type 2 SCD)
+    valid_from_dt            DATE NOT NULL,
+    valid_to_dt              DATE NOT NULL DEFAULT DATE '9999-12-31',
+    is_current               BYTEINT NOT NULL DEFAULT 1,
+    is_deleted               BYTEINT NOT NULL DEFAULT 0,
+
+    -- Audit
+    created_dt               TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
+    updated_dt               TIMESTAMP(6) WITH TIME ZONE
+) PRIMARY INDEX (customer_key);
+
+COMMENT ON TABLE  MortgagePlatform_Domain.CustomerCompliance_H IS 'BIAN: Customer Credit Rating - KYC verification status and AML risk rating. Type 2 SCD; versioned when KYC is renewed or AML rating is reassessed. Regulated attributes under AML/CTF Act and APRA CPS 234. Source: STG_Borrower_Profile.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.customer_compliance_key IS 'Surrogate key - IDENTITY safe here (child entity)';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.customer_key            IS 'FK to Customer_Keymap.customer_key - PI column';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.kyc_status_cd           IS 'FK to KYCStatus_R - current KYC verification status. Verified=compliant; Pending/Expired/Failed require action.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.kyc_verification_dt     IS 'Date KYC verification was last completed or renewed.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.aml_risk_rating_cd      IS 'FK to AMLRiskRating_R - AML risk rating: L=Low, M=Medium, H=High. H requires Enhanced Due Diligence.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.valid_from_dt           IS 'Date this compliance version became effective.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.valid_to_dt             IS 'Date this version was superseded; 9999-12-31 = currently active.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.is_current              IS '1=current active version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.is_deleted              IS '1=soft-deleted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.source_system           IS 'Source system that provided this record version.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.source_key              IS 'Natural key as it appeared in the source system.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.created_dt              IS 'Timestamp this row was inserted.';
+COMMENT ON COLUMN MortgagePlatform_Domain.CustomerCompliance_H.updated_dt              IS 'Timestamp this row was last modified.';
+
+
+-- =============================================================================
+-- SECTION 4E: VIEWS — Customer
+-- =============================================================================
+
+REPLACE VIEW MortgagePlatform_Domain.Customer_Current AS
+SELECT * FROM MortgagePlatform_Domain.Customer_H
+WHERE is_current = 1 AND is_deleted = 0;
+COMMENT ON VIEW MortgagePlatform_Domain.Customer_Current IS 'Current active customer records - is_current=1 and is_deleted=0. Use for standard reporting and joins.';
+
+REPLACE VIEW MortgagePlatform_Domain.Customer_Enriched AS
+SELECT
+    c.*,
+    csh.segment_cd              AS segment_cd,
+    seg.segment_nm              AS segment_name,
+    seg.wealth_tier_order       AS segment_wealth_tier,
+    cc.kyc_status_cd            AS kyc_status,
+    ks.is_compliant             AS kyc_is_compliant,
+    cc.aml_risk_rating_cd       AS aml_risk_rating,
+    ar.aml_risk_rating_nm       AS aml_risk_rating_name,
+    ar.enhanced_due_diligence   AS aml_edd_required
+FROM MortgagePlatform_Domain.Customer_Current c
+LEFT JOIN MortgagePlatform_Domain.CustomerSegment_H    csh ON csh.customer_key     = c.customer_key AND csh.is_current = 1 AND csh.is_deleted = 0
+LEFT JOIN MortgagePlatform_Domain.CustomerSegment_R    seg ON seg.segment_cd        = csh.segment_cd
+LEFT JOIN MortgagePlatform_Domain.CustomerCompliance_H cc  ON cc.customer_key       = c.customer_key AND cc.is_current = 1 AND cc.is_deleted = 0
+LEFT JOIN MortgagePlatform_Domain.KYCStatus_R          ks  ON ks.kyc_status_cd      = cc.kyc_status_cd
+LEFT JOIN MortgagePlatform_Domain.AMLRiskRating_R      ar  ON ar.aml_risk_rating_cd = cc.aml_risk_rating_cd;
+COMMENT ON VIEW MortgagePlatform_Domain.Customer_Enriched IS 'Enriched customer view - current customers with decoded segment, KYC compliance status and AML risk rating. Suitable for compliance dashboards and customer analytics.';
