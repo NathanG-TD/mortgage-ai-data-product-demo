@@ -25,6 +25,10 @@ Business Analysts primarily. This is the centrepiece demo.
 
 ## Demo Steps
 
+Before you begin, follow the instructions in: 08_withheld_source/README.md
+
+This will generate the bureau data, create the staging table and load the new data.
+
 ### Step 1 — Show the raw bureau feed
 
 Present the first 10 rows of `bureau_feed.csv`. Point out:
@@ -90,7 +94,7 @@ bteq < 08_withheld_source/03_bureau_semantic_registration.sql
 
 ### Step 6 — Impact analysis
 
-> "Now that the bureau feed is registered, which parts of the domain model
+> "Now that the bureau feed is mapped, which parts of the domain model
 > have been enriched? And which downstream reports now have access to
 > credit impairment data that they didn't have before?"
 
