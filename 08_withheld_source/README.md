@@ -29,21 +29,18 @@ Also pre-create the staging table so the load is instant during the demo:
 cat logon.txt 08_withheld_source/00_create_bureau_staging_table.sql | bteq
 ```
 
+Load the bureau feed into staging:
+```bash
+python 08_withheld_source/02_load_bureau_feed.py
+```
+
 ### During the Demo — Act 2 Sequence
 
 1. Show the agent reading the existing domain model via the Memory/Semantic modules
 2. Present the bureau feed CSV — unfamiliar columns, no documentation context
 3. Show the agent reading the data dictionary (`data_dictionary/credit_bureau_feed.md`)
 4. The agent maps columns to existing domain entities with confidence tiers
-5. Load the bureau feed into staging:
-   ```bash
-   python 08_withheld_source/02_load_bureau_feed.py
-   ```
-6. Register the new source in the Semantic layer:
-   ```bash
-   cat logon.txt 08_withheld_source/03_bureau_semantic_registration.sql | bteq
-   ```
-7. Show the enriched domain model — new attributes now visible on Customer and Loan
+5. Show the enriched domain model — new attributes now visible on Customer and Loan
 
 ### Why This Source Works for the Demo
 
