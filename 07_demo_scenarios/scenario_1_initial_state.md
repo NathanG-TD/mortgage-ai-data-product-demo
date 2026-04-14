@@ -29,6 +29,8 @@ Business Analysts, Data Architects, and any business stakeholders attending.
 
 Run in Claude / agent interface:
 
+Attach the "Access_Data_Product_Starter.md" file into Claude, from the AI Native Data Products design standards repository, this gives the Agent clear instructions on how to use the data product.
+
 > "What source systems are currently registered in the MortgagePlatform and
 > what domain entities do they feed?"
 
