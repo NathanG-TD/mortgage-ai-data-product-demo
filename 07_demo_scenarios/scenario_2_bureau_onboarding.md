@@ -41,8 +41,8 @@ Present the first 10 rows of `bureau_feed.csv`. Point out:
 Direct the agent to the data dictionary:
 
 > "I have a new source file to onboard — a credit bureau feed from Equifax.
-> Here is the data dictionary: [paste content of credit_bureau_feed.md]
-> Please map this to our existing MortgagePlatform domain model."
+> Please map this to our existing MortgagePlatform data product.
+> The new feed table can be found in the Staging database."
 
 Expected agent behaviour:
 - Reads `data_product_map` to discover existing entities and attributes
