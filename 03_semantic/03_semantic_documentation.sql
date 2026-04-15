@@ -123,3 +123,43 @@ WHERE is_active = 1 ORDER BY standard_type;',
  'All Semantic tables are small (< 500 rows). All four queries complete in under 1 second.',
  'SIMPLE', 'SEMANTIC',
  1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+-- =============================================================================
+-- QUERY COOKBOOK — new mandatory entries per AI-Native Data Product Standard v1.7
+-- QC-SEMANTIC-002: ERD generation recipe (mandatory for all data products)
+-- QC-XMODULE-001: Domain-to-Staging lineage (cross-module recipe)
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Memory.Query_Cookbook
+(recipe_id, recipe_title, recipe_description, use_case,
+ target_module, sql_template, parameter_descriptions,
+ performance_notes, complexity, source_module, module_version,
+ is_active, valid_from, valid_to, created_timestamp)
+VALUES
+('QC-SEMANTIC-002',
+ 'Generate entity-relationship diagram from table_relationship',
+ 'Queries the Semantic table_relationship table to produce a complete entity-relationship listing for the MortgagePlatform data product. Output can be formatted as Mermaid erDiagram syntax or as a plain relationship listing. Use this recipe to verify the current data model without relying on a static diagram that may have drifted.',
+ 'Data model documentation, agent onboarding, design review, relationship completeness verification',
+ 'SEMANTIC',
+ 'SELECT r.from_table, r.from_column, r.relationship_type, r.cardinality, r.to_table, r.to_column, r.join_type, r.is_mandatory, r.relationship_desc FROM MortgagePlatform_Semantic.table_relationship r WHERE r.is_active = 1 ORDER BY r.from_table, r.to_table;',
+ 'No parameters required. For Mermaid output, map each row to: {from_table} {cardinality_symbol} {to_table} : "{relationship_desc}". Symbols: ONE_TO_ONE=||--||, ONE_TO_MANY=||--o{, MANY_TO_ONE=}o--||, MANY_TO_MANY=}o--o{',
+ 'Lightweight query on a small metadata table - no performance concerns.',
+ 'SIMPLE', 'SEMANTIC', '1.0.0',
+ 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Query_Cookbook
+(recipe_id, recipe_title, recipe_description, use_case,
+ target_module, sql_template, parameter_descriptions,
+ performance_notes, complexity, source_module, module_version,
+ is_active, valid_from, valid_to, created_timestamp)
+VALUES
+('QC-XMODULE-001',
+ 'Loan origination lineage: Domain back to Staging source row',
+ 'Traces a funded loan in the Domain module back to its originating row in the Staging module. Joins Loan_H to STG_Freddie_Origination via the natural key LOAN_SEQUENCE_NUMBER. Useful for data quality investigations, regulatory lineage queries, and source-to-target validation.',
+ 'Data lineage tracing, regulatory audit (AASB9/IFRS9), source-to-target validation, data quality investigation',
+ 'CROSS',
+ 'SELECT l.loan_id AS domain_loan_id, l.orig_upb AS domain_orig_upb, l.orig_interest_rate, l.first_payment_dt, l.loan_status, s.LOAN_SEQUENCE_NUMBER AS staging_loan_seq, s.ORIGINAL_UPB AS staging_orig_upb, s.ORIGINAL_INTEREST_RATE AS staging_interest_rate, s.FIRST_PAYMENT_DATE AS staging_first_payment_date FROM MortgagePlatform_Domain.Loan_H l JOIN MortgagePlatform_Staging.STG_Freddie_Origination s ON s.LOAN_SEQUENCE_NUMBER = l.loan_id WHERE l.is_current = 1 AND l.is_deleted = 0 AND l.loan_id = {loan_sequence_number}',
+ '{loan_sequence_number} - the LOAN_SEQUENCE_NUMBER value to trace (e.g. F05Q1000001). Remove the WHERE l.loan_id filter to return all loans for a full lineage audit.',
+ 'PI on both tables aligns on loan natural key - join is efficient with no AMP redistribution.',
+ 'SIMPLE', 'DOMAIN', '1.0.0',
+ 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));

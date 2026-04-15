@@ -375,3 +375,136 @@ VALUES
  'WORKAROUND', 'MEDIUM',
  'All MortgagePlatform_Staging tables', 'RESOLVED',
  'STAGING', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+-- =============================================================================
+-- MODULE REGISTRY — PLANNED modules (Search, Prediction, Observability)
+-- Added to align with AI-Native Data Product Design Standard v1.7
+-- which requires a Module_Registry row for every module considered during
+-- design, not just those deployed.
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Memory.Module_Registry
+(module_name, database_name, deployment_status, module_version, module_purpose,
+ module_scope, dependencies, dependents, version_date, is_current, valid_from, valid_to,
+ created_timestamp)
+VALUES
+('SEARCH', 'MortgagePlatform_Search', 'PLANNED', 'N/A',
+ 'Vector embeddings and semantic similarity search for mortgage domain entities - enables agents to find similar loans, properties, and customers via embedding-based retrieval and RAG patterns.',
+ 'Deferred to Phase 3. Depends on Domain module being stable and populated. Primary use cases: similar-property discovery for collateral risk analysis, RAG-based customer query answering. Target: post-initial-demo release.',
+ 'DOMAIN, SEMANTIC', 'None',
+ CURRENT_DATE, 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Module_Registry
+(module_name, database_name, deployment_status, module_version, module_purpose,
+ module_scope, dependencies, dependents, version_date, is_current, valid_from, valid_to,
+ created_timestamp)
+VALUES
+('PREDICTION', 'MortgagePlatform_Prediction', 'PLANNED', 'N/A',
+ 'Feature store and ML prediction storage for mortgage risk and customer analytics - pre-computed features for churn risk, default probability, and portfolio segmentation models.',
+ 'Deferred to Phase 3. Depends on Domain and Observability modules. Primary use cases: default risk scoring, customer churn prediction, LVR-based risk-weighted asset calculation. Requires model development outside this demo scope.',
+ 'DOMAIN, SEMANTIC, OBSERVABILITY', 'None',
+ CURRENT_DATE, 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Module_Registry
+(module_name, database_name, deployment_status, module_version, module_purpose,
+ module_scope, dependencies, dependents, version_date, is_current, valid_from, valid_to,
+ created_timestamp)
+VALUES
+('OBSERVABILITY', 'MortgagePlatform_Observability', 'PLANNED', 'N/A',
+ 'Event tracking, data quality monitoring, and lineage for all mortgage platform modules - captures change events, quality scores, and source-to-target lineage for regulatory and operational audit.',
+ 'Deferred to Phase 2b. Depends on Domain module. Priority use cases: AASB9/IFRS9 data lineage for expected credit loss calculation, AML transaction monitoring audit trail, data quality scoring for bureau feed onboarding. Target: required before production go-live.',
+ 'DOMAIN, SEMANTIC', 'PREDICTION',
+ CURRENT_DATE, 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
+
+-- =============================================================================
+-- DESIGN DECISIONS — scope and deferral decisions
+-- Added to align with AI-Native Data Product Design Standard v1.7
+-- DD-SCOPE-001: database layout choice (mandatory at first deployment)
+-- DD-SCOPE-002/003/004: one per deferred module (mandatory per new standard)
+-- DD-MEMORY-004: Memory standalone entities documented as intentional
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Memory.Design_Decision
+(decision_id, decision_version, decision_title, decision_description,
+ context, alternatives_considered, rationale, consequences,
+ decision_status, decision_category, source_module, module_version,
+ decided_by, decided_date, valid_from, valid_to, is_current, created_timestamp)
+VALUES
+('DD-SCOPE-001', 1,
+ 'Database layout: separate database per module',
+ 'Each module is deployed in its own Teradata database following the {ProductName}_{Module} naming pattern: MortgagePlatform_Domain, MortgagePlatform_Semantic, MortgagePlatform_Memory, MortgagePlatform_Staging.',
+ 'Two layout options exist in the AI-Native Data Product standard: (1) separate database per module, (2) single database with module-prefixed tables. The choice affects access control granularity, deployment independence, and operational complexity.',
+ 'Single database with module prefixes - simpler to manage, fewer database objects, no cross-database joins.',
+ 'Separate databases chosen. Enables independent access control per module via GRANT DATABASE, supports incremental deployment of modules in phases, and clearly communicates module boundaries to the team. Aligns with the enterprise default recommendation in the design standard.',
+ 'Cross-database joins required when agents query across modules. Each new module requires a new database provisioned. Deployment scripts must create databases before tables.',
+ 'ACCEPTED', 'ARCHITECTURE', 'SCOPE', '1.0.0',
+ 'Data Architecture Team', CURRENT_DATE,
+ CURRENT_DATE, DATE '9999-12-31', 1, CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Design_Decision
+(decision_id, decision_version, decision_title, decision_description,
+ context, alternatives_considered, rationale, consequences,
+ decision_status, decision_category, source_module, module_version,
+ decided_by, decided_date, valid_from, valid_to, is_current, created_timestamp)
+VALUES
+('DD-SCOPE-002', 1,
+ 'Observability module deferred to Phase 2b',
+ 'The Observability module (MortgagePlatform_Observability) is not deployed in the initial release. It is scoped for Phase 2b, after the core Domain model is validated with real data.',
+ 'Observability provides change event capture, data quality scoring, and source-to-target lineage. For a demo environment these are valuable but not blocking. In production, AASB9/IFRS9 expected credit loss calculation requires auditable data lineage, and AML/CTF obligations require a change audit trail - making Observability mandatory before go-live.',
+ 'Deploy Observability in Phase 1 alongside Domain - adds significant deployment complexity and scope to the initial build. Defer indefinitely - not appropriate given regulatory requirements.',
+ 'Deferred to Phase 2b. The Domain model must be stable before Observability tables are meaningful. Phase 2b trigger: first integration with production data sources or commencement of UAT with compliance team.',
+ 'No automated data quality scoring in initial release. Lineage from staging to domain is manual (documented in 06_lineage/lineage_queries.sql). Change audit trail not available until Observability is deployed.',
+ 'ACCEPTED', 'ARCHITECTURE', 'SCOPE', '1.0.0',
+ 'Data Architecture Team', CURRENT_DATE,
+ CURRENT_DATE, DATE '9999-12-31', 1, CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Design_Decision
+(decision_id, decision_version, decision_title, decision_description,
+ context, alternatives_considered, rationale, consequences,
+ decision_status, decision_category, source_module, module_version,
+ decided_by, decided_date, valid_from, valid_to, is_current, created_timestamp)
+VALUES
+('DD-SCOPE-003', 1,
+ 'Search module deferred to Phase 3',
+ 'The Search module (MortgagePlatform_Search) is not deployed in the initial release. It is scoped for Phase 3, after the Domain model is stable and an embedding strategy is agreed.',
+ 'Search enables vector-based similarity queries on mortgage entities - similar property discovery, semantic loan matching, and RAG-based natural language query answering. These require an agreed embedding model and vector index strategy.',
+ 'Deploy Search in Phase 2 - premature without a validated embedding model and without production data volumes to justify the infrastructure. Defer indefinitely - not appropriate as it is a core AI-native differentiator.',
+ 'Deferred to Phase 3. The primary demo value is in the domain model, agent discovery, and source mapping capabilities. Search adds the semantic layer. Phase 3 trigger: production data onboarding complete and embedding model selected.',
+ 'No semantic similarity search in initial release. Agents must use SQL-based filtering rather than natural language similarity queries. No RAG capability against mortgage domain knowledge.',
+ 'ACCEPTED', 'ARCHITECTURE', 'SCOPE', '1.0.0',
+ 'Data Architecture Team', CURRENT_DATE,
+ CURRENT_DATE, DATE '9999-12-31', 1, CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Design_Decision
+(decision_id, decision_version, decision_title, decision_description,
+ context, alternatives_considered, rationale, consequences,
+ decision_status, decision_category, source_module, module_version,
+ decided_by, decided_date, valid_from, valid_to, is_current, created_timestamp)
+VALUES
+('DD-SCOPE-004', 1,
+ 'Prediction module deferred to Phase 3',
+ 'The Prediction module (MortgagePlatform_Prediction) is not deployed in the initial release. It is scoped for Phase 3, after Observability is available and model development is underway.',
+ 'Prediction provides a feature store and ML prediction storage for mortgage risk models - default probability, churn risk, and LVR-based risk-weighted asset calculations. It depends on Observability for feature drift monitoring.',
+ 'Deploy Prediction in Phase 2 - premature without validated features and without Observability providing the quality layer. Defer indefinitely - not appropriate as risk modelling is a core use case.',
+ 'Deferred to Phase 3, sequenced after Observability. Phase 3 trigger: Observability deployed and at least one model in development requiring a structured feature store.',
+ 'No pre-computed risk features in initial release. Agents must derive features on-the-fly from Domain tables. No model prediction storage available in the demo period.',
+ 'ACCEPTED', 'ARCHITECTURE', 'SCOPE', '1.0.0',
+ 'Data Architecture Team', CURRENT_DATE,
+ CURRENT_DATE, DATE '9999-12-31', 1, CURRENT_TIMESTAMP(6));
+
+INSERT INTO MortgagePlatform_Memory.Design_Decision
+(decision_id, decision_version, decision_title, decision_description,
+ context, alternatives_considered, rationale, consequences,
+ decision_status, decision_category, source_module, module_version,
+ decided_by, decided_date, valid_from, valid_to, is_current, created_timestamp)
+VALUES
+('DD-MEMORY-004', 1,
+ 'Memory design memory tables are intentionally standalone in table_relationship',
+ 'agent_session, Business_Glossary, and Query_Cookbook are registered in entity_metadata but have no entries in table_relationship. This is intentional - not an omission.',
+ 'The table_relationship completeness check flags entities with no registered relationships. These three Memory tables trigger that check. The standard requires either adding relationships or documenting the standalone status.',
+ 'Register FK-style or SEMANTIC relationships to other Memory tables - adds noise without agent navigation value since these tables are content stores not transactional entities.',
+ 'Memory design memory tables use VARCHAR columns to reference other tables by name, not surrogate key FKs. There are no JOIN paths an agent would be expected to traverse. Each is a self-contained knowledge store queried independently.',
+ 'These three tables will always appear in the isolation check. Agents running the check should exclude Memory design memory tables from isolation reports.',
+ 'ACCEPTED', 'ARCHITECTURE', 'MEMORY', '1.0.0',
+ 'Data Architecture Team', CURRENT_DATE,
+ CURRENT_DATE, DATE '9999-12-31', 1, CURRENT_TIMESTAMP(6));

@@ -474,3 +474,84 @@ INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
 ('ABBREVIATION', 'REO', 'Real Estate Owned — property acquired by a lender through foreclosure', 'ZERO_BALANCE_CODE=09 (REO Disposition), CURRENT_LOAN_DELINQUENCY_STATUS=RA (REO Acquisition)', 1);
+
+-- =============================================================================
+-- TABLE RELATIONSHIP — missing Customer_H → Customer_Keymap relationship
+-- This omission caused Customer_H to appear as an isolated entity in the
+-- table_relationship completeness check. Fixed per AI-Native standard v2.6.
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Domain', 'Customer_H', 'customer_key',
+ 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key',
+ 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE',
+ 1, 1, 'Customer history rows to stable customer surrogate key - PI join co-locates all versions on same AMP');
+
+-- =============================================================================
+-- TABLE RELATIONSHIP — Staging to Domain cross-module semantic relationships
+-- Zero cross-module relationships existed prior to this change. These five
+-- SEMANTIC relationships enable agents to trace lineage from Domain entities
+-- back to their source staging rows. relationship_type = 'SEMANTIC' (not
+-- FOREIGN_KEY) because there is no physical FK constraint across databases;
+-- the join is via shared natural keys.
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Staging', 'STG_Freddie_Origination', 'LOAN_SEQUENCE_NUMBER',
+ 'MortgagePlatform_Domain', 'LoanApplication_H', 'loan_application_id',
+ 'SEMANTIC', 'LEFT', 'ONE_TO_ONE',
+ 0, 1, 'Origination staging row is the source for loan application domain entity - join on natural key LOAN_SEQUENCE_NUMBER');
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Staging', 'STG_Freddie_Origination', 'LOAN_SEQUENCE_NUMBER',
+ 'MortgagePlatform_Domain', 'Loan_H', 'loan_id',
+ 'SEMANTIC', 'LEFT', 'ONE_TO_ONE',
+ 0, 1, 'Origination staging row is the source for loan facility domain entity - join on natural key LOAN_SEQUENCE_NUMBER');
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Staging', 'STG_Freddie_Performance', 'LOAN_SEQUENCE_NUMBER',
+ 'MortgagePlatform_Domain', 'LoanPerformance_H', 'loan_key',
+ 'SEMANTIC', 'LEFT', 'ONE_TO_MANY',
+ 0, 1, 'Performance staging rows are the source for monthly loan performance snapshots - join staging via Loan_Keymap to resolve loan_key');
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Staging', 'STG_Borrower_Profile', 'CUSTOMER_ID',
+ 'MortgagePlatform_Domain', 'Customer_H', 'customer_id',
+ 'SEMANTIC', 'LEFT', 'ONE_TO_ONE',
+ 0, 1, 'Borrower profile staging row is the source for customer domain entity - join on natural key CUSTOMER_ID');
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship
+(from_database, from_table, from_column,
+ to_database, to_table, to_column,
+ relationship_type, join_type, cardinality,
+ is_mandatory, is_active, relationship_desc)
+VALUES
+('MortgagePlatform_Staging', 'STG_Property_Valuation', 'PROPERTY_ID',
+ 'MortgagePlatform_Domain', 'Property_H', 'property_id',
+ 'SEMANTIC', 'LEFT', 'ONE_TO_ONE',
+ 0, 1, 'Property valuation staging row is the source for property domain entity - join on natural key PROPERTY_ID');

@@ -179,6 +179,7 @@ CREATE MULTISET TABLE MortgagePlatform_Memory.Module_Registry,
     module_registry_key     BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
     module_name             VARCHAR(50) NOT NULL,
     database_name           VARCHAR(100) NOT NULL,
+    deployment_status       VARCHAR(20) NOT NULL DEFAULT 'DEPLOYED',
     module_version          VARCHAR(20) NOT NULL,
     module_purpose          CLOB NOT NULL,
     module_scope            CLOB,
@@ -197,7 +198,9 @@ CREATE MULTISET TABLE MortgagePlatform_Memory.Module_Registry,
 PRIMARY INDEX (module_registry_key);
 
 COMMENT ON TABLE MortgagePlatform_Memory.Module_Registry IS
-'Version registry for all deployed modules — backbone for point-in-time documentation generation';
+'Version registry for all modules considered during data product design — includes DEPLOYED, PLANNED, and DEPRECATED modules; backbone for point-in-time documentation generation';
+COMMENT ON COLUMN MortgagePlatform_Memory.Module_Registry.deployment_status IS
+'DEPLOYED = active and queryable (matching data_product_map entry); PLANNED = in scope but not yet built; DEPRECATED = previously deployed, now retired';
 COMMENT ON COLUMN MortgagePlatform_Memory.Module_Registry.is_current IS
 '1 = current version of this module; 0 = superseded; only one is_current=1 row per module_name';
 
