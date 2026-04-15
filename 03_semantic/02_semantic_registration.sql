@@ -555,3 +555,175 @@ VALUES
  'MortgagePlatform_Domain', 'Property_H', 'property_id',
  'SEMANTIC', 'LEFT', 'ONE_TO_ONE',
  0, 1, 'Property valuation staging row is the source for property domain entity - join on natural key PROPERTY_ID');
+
+-- =============================================================================
+-- ENTITY METADATA — child entities, keymaps, and reference tables
+-- Added to align with AI-Native Data Product Design Standard v2.6
+-- which requires entity_metadata coverage for all tables in all modules.
+-- =============================================================================
+
+-- Keymaps
+INSERT INTO MortgagePlatform_Semantic.entity_metadata
+(module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerKeymap', 'MortgagePlatform_Domain', 'Customer_Keymap', NULL, 'customer_id', 'customer_key', 'Surrogate key allocation table for Customer entity. One row per unique customer. Generates the stable customer_key referenced as FK by Customer_H and all child customer entities, Loan_H, LoanApplication_H, Property_H, and LoanStatement_H.', 'CUSTOMER', 37500, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata
+(module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanApplicationKeymap', 'MortgagePlatform_Domain', 'LoanApplication_Keymap', NULL, 'loan_application_id', 'loan_application_key', 'Surrogate key allocation table for LoanApplication entity. One row per unique loan application. Natural key is loan_application_id (Freddie Mac LOAN_SEQUENCE_NUMBER). Generates the stable loan_application_key referenced by LoanApplication_H and Loan_H.', 'LOAN', 37500, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata
+(module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanKeymap', 'MortgagePlatform_Domain', 'Loan_Keymap', NULL, 'loan_id', 'loan_key', 'Surrogate key allocation table for Loan entity. One row per unique funded loan. Natural key is loan_id (Freddie Mac LOAN_SEQUENCE_NUMBER). Generates the stable loan_key referenced by Loan_H, LoanPerformance_H, LoanEvent_H, LoanModification_H, Payment_H, LoanStatement_H, and Property_H.', 'LOAN', 37500, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata
+(module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyKeymap', 'MortgagePlatform_Domain', 'Property_Keymap', NULL, 'property_id', 'property_key', 'Surrogate key allocation table for Property entity. One row per unique security property. Natural key is property_id from the Collateral Management System. Generates the stable property_key referenced by Property_H, PropertyAddress_H, PropertyValuation_H, PropertyRisk_H, PropertyTitle_H, and Loan_H.', 'PROPERTY', 37500, 1);
+
+-- Reference tables
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanPurpose', 'MortgagePlatform_Domain', 'LoanPurpose_R', NULL, 'loan_purpose_cd', NULL, 'Reference: loan purpose codes. 4 rows: P=Purchase, C=Cash-out Refinance, N=No Cash-out Refinance, U=Unknown. Source: Freddie Mac LOAN_PURPOSE. FK target for LoanApplication_H.loan_purpose_cd.', 'REFERENCE', 4, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'OriginationChannel', 'MortgagePlatform_Domain', 'OriginationChannel_R', NULL, 'channel_cd', NULL, 'Reference: origination channel codes. 4 rows: R=Retail, B=Broker, C=Correspondent, T=TPO Not Specified. Source: Freddie Mac CHANNEL. FK target for LoanApplication_H.channel_cd.', 'REFERENCE', 4, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'AmortizationType', 'MortgagePlatform_Domain', 'AmortizationType_R', NULL, 'amortization_type_cd', NULL, 'Reference: amortisation type codes. 2 rows: FRM=Fixed Rate Mortgage, ARM=Adjustable Rate Mortgage. Source: Freddie Mac AMORTIZATION_TYPE. FK target for Loan_H.amortization_type_cd and MortgageProduct_R.amortization_type_cd.', 'REFERENCE', 2, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'OccupancyStatus', 'MortgagePlatform_Domain', 'OccupancyStatus_R', NULL, 'occupancy_status_cd', NULL, 'Reference: property occupancy status at origination. 3 rows: P=Primary Residence, S=Second Home, I=Investment Property. Source: Freddie Mac OCCUPANCY_STATUS. FK target for LoanApplication_H.occupancy_status_cd.', 'REFERENCE', 3, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'DelinquencyStatus', 'MortgagePlatform_Domain', 'DelinquencyStatus_R', NULL, 'delinquency_status_cd', NULL, 'Reference: delinquency status codes. 8 rows: 0=Current, 1-6=months past due, RA=REO Acquisition. Source: Freddie Mac CURRENT_LOAN_DELINQUENCY_STATUS. is_performing flag for portfolio risk reports. FK target for LoanPerformance_H and Payment_H.', 'REFERENCE', 8, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'ZeroBalanceCode', 'MortgagePlatform_Domain', 'ZeroBalanceCode_R', NULL, 'zero_balance_code_cd', NULL, 'Reference: zero balance codes from Freddie Mac performance file. 7 rows indicating why a loan reached zero UPB. is_voluntary and is_distressed flags identify loan exit type. FK target for Loan_H and LoanPerformance_H.', 'REFERENCE', 7, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'MortgageProduct', 'MortgagePlatform_Domain', 'MortgageProduct_R', NULL, 'product_cd', NULL, 'Reference: BIAN Product Directory - mortgage product catalogue. 6 rows covering fixed-rate products at standard terms (15yr, 20yr, 25yr, 30yr), one catch-all for non-standard terms, and one ARM product. FK target for Loan_H.', 'REFERENCE', 6, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerSegmentRef', 'MortgagePlatform_Domain', 'CustomerSegment_R', NULL, 'segment_cd', NULL, 'Reference: CRM customer segment classifications. 5 rows: Mass Market, Emerging Affluent, Affluent, Private Banking, Business Owner. wealth_tier_order enables ascending wealth sort. FK target for CustomerSegment_H.segment_cd.', 'REFERENCE', 5, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'EmploymentStatus', 'MortgagePlatform_Domain', 'EmploymentStatus_R', NULL, 'employment_status_cd', NULL, 'Reference: borrower employment status codes. 6 rows: Full-time, Part-time, Contractor, Self-employed, Retired, Unemployed. is_income_stable flag for serviceability assessment. FK target for CustomerFinancial_H.employment_status_cd.', 'REFERENCE', 6, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'KYCStatus', 'MortgagePlatform_Domain', 'KYCStatus_R', NULL, 'kyc_status_cd', NULL, 'Reference: Know Your Customer verification status codes. 4 rows: Verified, Pending, Expired, Failed. is_compliant and requires_action flags drive compliance workflows under AML/CTF Act. FK target for CustomerCompliance_H.kyc_status_cd.', 'REFERENCE', 4, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'AMLRiskRating', 'MortgagePlatform_Domain', 'AMLRiskRating_R', NULL, 'aml_risk_rating_cd', NULL, 'Reference: Anti-Money Laundering risk rating codes. 3 rows: L=Low, M=Medium, H=High. enhanced_due_diligence flag for EDD requirement under AML/CTF Act. FK target for CustomerCompliance_H.aml_risk_rating_cd.', 'REFERENCE', 3, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyType', 'MortgagePlatform_Domain', 'PropertyType_R', NULL, 'property_type_cd', NULL, 'Reference: security property type codes. 5 rows: SF=Single Family House, TH=Townhouse, AP=Apartment/Unit, RU=Rural, VA=Vacant Land. is_strata_eligible flag. FK target for Property_H.property_type_cd.', 'REFERENCE', 5, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'ValuationMethod', 'MortgagePlatform_Domain', 'ValuationMethod_R', NULL, 'valuation_method_cd', NULL, 'Reference: property valuation method codes. 4 rows: Full, Kerbside, Desktop, AVM. is_physical_inspection and apra_acceptable flags for APRA APS112 LVR policy compliance. FK target for PropertyValuation_H.valuation_method_cd.', 'REFERENCE', 4, 1);
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyStatus', 'MortgagePlatform_Domain', 'PropertyStatus_R', NULL, 'property_status_cd', NULL, 'Reference: collateral property status codes. 4 rows: Active, Released, Substituted, Sold. is_active_security flag indicates whether property is still encumbered. FK target for Property_H.property_status_cd.', 'REFERENCE', 4, 1);
+
+-- Customer child entities + relationships
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerContact', 'MortgagePlatform_Domain', 'CustomerContact_H', NULL, 'customer_key', 'customer_contact_key', 'BIAN: Party Reference Data Management - customer contact details. Type 2 SCD child of Customer_H. Captures email, mobile, home phone, and preferred contact channel. PI on customer_key co-locates with parent.', 'CUSTOMER', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerContact_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Customer contact records to stable customer surrogate - PI join co-locates with parent Customer_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerAddress', 'MortgagePlatform_Domain', 'CustomerAddress_H', NULL, 'customer_key', 'customer_address_key', 'BIAN: Party Reference Data Management - customer residential address. Type 2 SCD child of Customer_H. SCD versioning tracks address changes over time for mail communications and fraud detection.', 'CUSTOMER', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerAddress_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Customer address records to stable customer surrogate - PI join co-locates with parent Customer_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerSegment', 'MortgagePlatform_Domain', 'CustomerSegment_H', NULL, 'customer_key', 'customer_segment_key', 'BIAN: Customer Profile - CRM segment, branch code, relationship manager assignment, and marketing opt-in. Type 2 SCD child of Customer_H. Captures segment transitions over time.', 'CUSTOMER', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerSegment_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Customer segment records to stable customer surrogate - PI join co-locates with parent Customer_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'CustomerFinancial', 'MortgagePlatform_Domain', 'CustomerFinancial_H', NULL, 'customer_key', 'customer_financial_key', 'BIAN: Customer Profile - income, employment status, employer name, and years with employer. Type 2 SCD child of Customer_H. Annual income range 30K-786K AUD in dataset.', 'CUSTOMER', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerFinancial_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Customer financial profile records to stable customer surrogate - PI join co-locates with parent Customer_H');
+
+-- Property child entities + relationships
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyAddress', 'MortgagePlatform_Domain', 'PropertyAddress_H', NULL, 'property_key', 'property_address_key', 'BIAN: Collateral Asset Administration - security property physical address. Type 2 SCD child of Property_H. SCD versioning supports address corrections and subdivision events.', 'PROPERTY', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'PropertyAddress_H', 'property_key', 'MortgagePlatform_Domain', 'Property_Keymap', 'property_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Property address records to stable property surrogate - PI join co-locates with parent Property_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyValuation', 'MortgagePlatform_Domain', 'PropertyValuation_H', 'PropertyValuation_Latest', 'property_key', 'property_valuation_key', 'BIAN: Collateral Asset Administration - append-only valuation event log. Two types: ORIGINAL and CURRENT_AVM. Valuation range 33K-10.9M AUD. Use PropertyValuation_Latest view for current market value.', 'PROPERTY', 75000, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'PropertyValuation_H', 'property_key', 'MortgagePlatform_Domain', 'Property_Keymap', 'property_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Property valuation events to stable property surrogate - PI co-locates all valuations per property on same AMP');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyRisk', 'MortgagePlatform_Domain', 'PropertyRisk_H', NULL, 'property_key', 'property_risk_key', 'BIAN: Collateral Asset Administration - natural hazard and environmental risk attributes. Type 2 SCD child of Property_H. Critical for APRA risk-weighted asset calculation and LMI pricing.', 'PROPERTY', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'PropertyRisk_H', 'property_key', 'MortgagePlatform_Domain', 'Property_Keymap', 'property_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Property risk assessment records to stable property surrogate - PI join co-locates with parent Property_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'PropertyTitle', 'MortgagePlatform_Domain', 'PropertyTitle_H', NULL, 'property_key', 'property_title_key', 'BIAN: Collateral Asset Administration - legal title details. Type 2 SCD child of Property_H. Captures title reference, lot and plan numbers, strata flag, and heritage listing.', 'PROPERTY', 37500, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'PropertyTitle_H', 'property_key', 'MortgagePlatform_Domain', 'Property_Keymap', 'property_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Property title records to stable property surrogate - PI join co-locates with parent Property_H');
+
+-- Loan child entities + relationships
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanEvent', 'MortgagePlatform_Domain', 'LoanEvent_H', NULL, 'loan_key', 'event_key', 'Append-only event log for discrete loan lifecycle events derived from LoanPerformance_H. Event types: DELINQUENCY_ESCALATION, DELINQUENCY_CURE, ZERO_BALANCE, MODIFICATION_STARTED, DISASTER_RELIEF_APPLIED, INTEREST_RATE_CHANGE. Immutable once inserted.', 'LOAN', 50000, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanEvent_H', 'loan_key', 'MortgagePlatform_Domain', 'Loan_Keymap', 'loan_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Loan lifecycle events to stable loan surrogate - PI co-locates all events per loan on same AMP');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanModification', 'MortgagePlatform_Domain', 'LoanModification_H', NULL, 'loan_key', 'modification_key', 'Append-only loan modification event log. One row per modification event. No modifications in current Jan-Sep 2025 dataset; scaffolded for Act 2 bureau feed onboarding scenario.', 'LOAN', 0, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanModification_H', 'loan_key', 'MortgagePlatform_Domain', 'Loan_Keymap', 'loan_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Loan modification events to stable loan surrogate - PI join co-locates with parent Loan_H');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'Payment', 'MortgagePlatform_Domain', 'Payment_H', NULL, 'loan_key', 'payment_key', 'BIAN: Payment - append-only monthly payment event log. One row per loan per reporting month. Derived from LoanPerformance_H UPB movement. Payment types: SCHEDULED, DRAWDOWN, PREPAYMENT. Immutable once inserted.', 'LOAN', 153382, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Payment_H', 'loan_key', 'MortgagePlatform_Domain', 'Loan_Keymap', 'loan_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Monthly payment events to stable loan surrogate - PI co-locates all payment periods per loan on same AMP');
+
+INSERT INTO MortgagePlatform_Semantic.entity_metadata (module_name, entity_name, database_name, table_name, view_name, natural_key_column, surrogate_key_column, entity_description, entity_category, record_count_approx, is_active)
+VALUES ('DOMAIN', 'LoanStatement', 'MortgagePlatform_Domain', 'LoanStatement_H', 'LoanStatement_Latest', 'loan_key', 'statement_key', 'BIAN: Customer Statement - append-only monthly loan statement record. Derived from LoanPerformance_H and Payment_H. Key regulatory lineage chain: LoanStatement_H -> Payment_H -> LoanPerformance_H -> Loan_H -> LoanApplication_H.', 'LOAN', 153382, 1);
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanStatement_H', 'loan_key', 'MortgagePlatform_Domain', 'Loan_Keymap', 'loan_key', 'FOREIGN_KEY', 'INNER', 'MANY_TO_ONE', 1, 1, 'Monthly loan statements to stable loan surrogate - PI co-locates all statement periods per loan on same AMP');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanStatement_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Monthly loan statements to the borrower customer - enables statement-to-customer navigation for regulatory lineage queries');
+
+-- =============================================================================
+-- TABLE RELATIONSHIP — reference table lookups (17 relationships)
+-- These link transactional tables to their reference decode tables.
+-- All use LEFT join and is_mandatory=0 since code columns are nullable.
+-- Agents use _Enriched views for decoded output; these relationships
+-- enable v_relationship_paths multi-hop navigation when needed.
+-- =============================================================================
+
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanApplication_H', 'loan_purpose_cd', 'MortgagePlatform_Domain', 'LoanPurpose_R', 'loan_purpose_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Loan application to loan purpose decode - P=Purchase, C=Cash-out Refi, N=No Cash-out Refi, U=Unknown');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanApplication_H', 'channel_cd', 'MortgagePlatform_Domain', 'OriginationChannel_R', 'channel_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Loan application to origination channel decode - R=Retail, B=Broker, C=Correspondent, T=TPO');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanApplication_H', 'occupancy_status_cd', 'MortgagePlatform_Domain', 'OccupancyStatus_R', 'occupancy_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Loan application to occupancy status decode - P=Primary, S=Second Home, I=Investment');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Loan_H', 'amortization_type_cd', 'MortgagePlatform_Domain', 'AmortizationType_R', 'amortization_type_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Loan to amortisation type decode - FRM=Fixed Rate Mortgage, ARM=Adjustable Rate Mortgage');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Loan_H', 'zero_balance_code_cd', 'MortgagePlatform_Domain', 'ZeroBalanceCode_R', 'zero_balance_code_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Loan to zero balance reason decode - only populated when loan_status=CLOSED');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanPerformance_H', 'delinquency_status_cd', 'MortgagePlatform_Domain', 'DelinquencyStatus_R', 'delinquency_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Monthly performance snapshot to delinquency status decode - 0=Current, 1-6=months past due, RA=REO');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'LoanPerformance_H', 'zero_balance_code_cd', 'MortgagePlatform_Domain', 'ZeroBalanceCode_R', 'zero_balance_code_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Monthly performance snapshot to zero balance reason decode - populated in period loan reached zero UPB');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Payment_H', 'delinquency_status_cd', 'MortgagePlatform_Domain', 'DelinquencyStatus_R', 'delinquency_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Payment event to delinquency status decode - links payment behaviour to delinquency classification for AASB9 lineage');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerSegment_H', 'segment_cd', 'MortgagePlatform_Domain', 'CustomerSegment_R', 'segment_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Customer segment record to segment definition decode - Mass Market, Affluent, Private Banking etc');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerFinancial_H', 'employment_status_cd', 'MortgagePlatform_Domain', 'EmploymentStatus_R', 'employment_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Customer financial profile to employment status decode - informs income verification requirements');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerCompliance_H', 'kyc_status_cd', 'MortgagePlatform_Domain', 'KYCStatus_R', 'kyc_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Customer compliance to KYC status decode - Verified/Pending/Expired/Failed; is_compliant flag drives AML/CTF obligations');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'CustomerCompliance_H', 'aml_risk_rating_cd', 'MortgagePlatform_Domain', 'AMLRiskRating_R', 'aml_risk_rating_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Customer compliance to AML risk rating decode - L/M/H; H requires Enhanced Due Diligence under AML/CTF Act');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Property_H', 'property_type_cd', 'MortgagePlatform_Domain', 'PropertyType_R', 'property_type_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Property to property type decode - SF/TH/AP/RU/VA; is_strata_eligible flag for title and LMI assessment');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'Property_H', 'property_status_cd', 'MortgagePlatform_Domain', 'PropertyStatus_R', 'property_status_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Property to collateral status decode - Active/Released/Substituted/Sold; is_active_security flag for encumbrance status');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'PropertyValuation_H', 'valuation_method_cd', 'MortgagePlatform_Domain', 'ValuationMethod_R', 'valuation_method_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Valuation event to valuation method decode - Full/Kerbside/Desktop/AVM; apra_acceptable flag for LVR policy compliance');
+INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_table, from_column, to_database, to_table, to_column, relationship_type, join_type, cardinality, is_mandatory, is_active, relationship_desc)
+VALUES ('MortgagePlatform_Domain', 'MortgageProduct_R', 'amortization_type_cd', 'MortgagePlatform_Domain', 'AmortizationType_R', 'amortization_type_cd', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Mortgage product to amortisation type decode - FRM or ARM; defines the repayment structure of the product');
