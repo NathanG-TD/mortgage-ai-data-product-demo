@@ -37,12 +37,13 @@ The bureau feed is deliberately chosen because it enriches **existing** entities
 Following the AI-Native Data Product standard, modules are built and deployed in this sequence:
 
 ```
-Phase 1:  02_memory/     →  03_semantic/
-Phase 2:  04_domain/
-Phase 3:  (future) Search, Prediction, Observability
+Phase 1:   02_memory/      →  03_semantic/
+Phase 2a:  04_domain/
+Phase 2b:  09_observability/
+Phase 3:   (future) Search, Prediction
 ```
 
-Memory and Semantic are always deployed first — Memory hosts the documentation tables every module writes to; Semantic hosts the discovery metadata every module registers into.
+Memory and Semantic are always deployed first — Memory hosts the documentation tables every module writes to; Semantic hosts the discovery metadata every module registers into. Observability is Phase 2b: it depends on Domain being stable and populated before quality monitoring and lineage tracking are meaningful.
 
 ## Repository Structure
 
@@ -100,12 +101,18 @@ mortgage-ai-data-product-demo/
 │   ├── scenario_2_bureau_onboarding.md ← Walk-through: new source mapping
 │   └── scenario_3_adhoc_analytics.md  ← Walk-through: NL analytics questions
 │
-└── 08_withheld_source/
-    ├── README.md                      ← Instructions: when/how to introduce
-    ├── 01_generate_bureau_feed.py     ← Synthetic data generator
-    ├── 02_load_bureau_feed.py         ← Loader into staging
-    ├── 03_bureau_semantic_registration.sql
-    └── 04_bureau_mapping_walkthrough.md
+├── 08_withheld_source/
+│   ├── README.md                      ← Instructions: when/how to introduce
+│   ├── 01_generate_bureau_feed.py     ← Synthetic data generator
+│   ├── 02_load_bureau_feed.py         ← Loader into staging
+│   ├── 03_bureau_semantic_registration.sql
+│   └── 04_bureau_mapping_walkthrough.md
+│
+└── 09_observability/
+    ├── 01_observability_ddl.sql       ← MortgagePlatform_Observability tables + views
+    ├── 02_observability_registration.sql ← Semantic + Module_Registry registration
+    ├── 03_observability_documentation.sql ← Design decisions, cookbook, glossary
+    └── 04_observability_seed.sql      ← 8 data_lineage flow definitions
 ```
 
 ## Quick Start
@@ -149,13 +156,11 @@ cat logon.txt 01_source_data/load_scripts/00_create_staging_tables.sql | bteq
 ### 6. Install Python dependencies and load/generate source data
 
 ```bash
-cd 01_source_data/load_scripts
-pip install -r requirements.txt
-python 01_load_freddie_origination.py
-python 02_load_freddie_performance.py
-python 03_generate_borrower_profile.py
-python 04_generate_property_valuation.py
-cd ../..
+pip install -r 01_source_data/load_scripts/requirements.txt
+python 01_source_data/load_scripts/01_load_freddie_origination.py
+python 01_source_data/load_scripts/02_load_freddie_performance.py
+python 01_source_data/load_scripts/03_generate_borrower_profile.py
+python 01_source_data/load_scripts/04_generate_property_valuation.py
 ```
 
 ### 7. Deploy Memory and Semantic
@@ -177,6 +182,15 @@ cat logon.txt 04_domain/03_domain_views.sql | bteq
 cat logon.txt 04_domain/04_domain_documentation.sql | bteq
 ```
 
+### 9. Deploy Observability
+
+```bash
+cat logon.txt 09_observability/01_observability_ddl.sql | bteq
+cat logon.txt 09_observability/02_observability_registration.sql | bteq
+cat logon.txt 09_observability/03_observability_documentation.sql | bteq
+cat logon.txt 09_observability/04_observability_seed.sql | bteq
+```
+
 ## Naming Convention
 
 Product name: **`MortgagePlatform`**
@@ -187,6 +201,7 @@ Product name: **`MortgagePlatform`**
 | Semantic | `MortgagePlatform_Semantic` |
 | Domain | `MortgagePlatform_Domain` |
 | Staging | `MortgagePlatform_Staging` |
+| Observability | `MortgagePlatform_Observability` |
 
 ## License & Data Attribution
 
