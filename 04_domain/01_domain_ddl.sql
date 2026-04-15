@@ -763,7 +763,7 @@ CREATE TABLE MortgagePlatform_Domain.Customer_H (
     updated_dt                TIMESTAMP(6) WITH TIME ZONE
 ) PRIMARY INDEX (customer_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.Customer_H IS 'BIAN: Party Reference Data Management - core customer identity record. Type 2 SCD. The enterprise master for customer identity; all child customer entities reference customer_key. Source: STG_Borrower_Profile. 37,500 customers, one per loan in this dataset.';
+COMMENT ON TABLE  MortgagePlatform_Domain.Customer_H IS 'BIAN: Party Reference Data Management - core customer identity record. Type 2 SCD. Enterprise master for customer identity; all child entities reference customer_key. Source: STG_Borrower_Profile. 37,500 customers.';
 COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.customer_key              IS 'Surrogate key from Customer_Keymap - stable across all SCD versions';
 COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.customer_id               IS 'Natural key - CUSTOMER_ID from CRM. Format: CUS-XXXXXXXX. Same across all history versions.';
 COMMENT ON COLUMN MortgagePlatform_Domain.Customer_H.loan_application_key      IS 'FK to LoanApplication_Keymap - links customer to their loan application; nullable for customers without a current application';
