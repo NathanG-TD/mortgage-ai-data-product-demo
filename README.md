@@ -172,7 +172,7 @@ cat logon.txt 03_semantic/03_semantic_documentation.sql | bteq
 
 ```bash
 cat logon.txt 04_domain/01_domain_ddl.sql | bteq
-cat logon.txt 04_domain/02_domain_comments.sql | bteq
+cat logon.txt 04_domain/02_domain_load.sql | bteq
 cat logon.txt 04_domain/03_domain_views.sql | bteq
 cat logon.txt 04_domain/04_domain_documentation.sql | bteq
 ```

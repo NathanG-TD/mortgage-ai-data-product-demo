@@ -368,7 +368,7 @@ CREATE TABLE MortgagePlatform_Domain.Loan_H (
     updated_dt                TIMESTAMP(6) WITH TIME ZONE
 ) PRIMARY INDEX (loan_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.Loan_H IS 'BIAN: Mortgage Loan - the funded mortgage facility. Central entity of the domain model; all other tables reference loan_key. Type 2 SCD; use Loan_Current view for current records. Source: STG_Freddie_Origination (initial load) + STG_Freddie_Performance (status updates).';
+COMMENT ON TABLE  MortgagePlatform_Domain.Loan_H IS 'BIAN: Mortgage Loan - funded mortgage facility. Central entity; all domain tables reference loan_key. Type 2 SCD; use Loan_Current view for active records. Source: STG_Freddie_Origination (initial) + STG_Freddie_Performance (status updates).';
 COMMENT ON COLUMN MortgagePlatform_Domain.Loan_H.loan_key                  IS 'Surrogate key from Loan_Keymap - stable across all SCD versions for the same loan';
 COMMENT ON COLUMN MortgagePlatform_Domain.Loan_H.loan_id                   IS 'Natural key - LOAN_SEQUENCE_NUMBER from Freddie Mac; same across all history versions';
 COMMENT ON COLUMN MortgagePlatform_Domain.Loan_H.loan_application_key      IS 'FK to LoanApplication_Keymap - links loan to its originating application';
@@ -1327,7 +1327,7 @@ CREATE TABLE MortgagePlatform_Domain.PropertyValuation_H (
     loaded_dt               TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
 ) PRIMARY INDEX (property_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.PropertyValuation_H IS 'BIAN: Collateral Asset Administration - append-only valuation event log. One row per valuation event per property. Two valuation types loaded from source: ORIGINAL (at origination) and CURRENT_AVM (most recent automated refresh). Immutable once inserted. Source: STG_Property_Valuation. Valuation range 33K-10.9M AUD in dataset.';
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyValuation_H IS 'BIAN: Collateral Asset Administration - append-only valuation event log. One row per valuation per property. Two types: ORIGINAL (origination) and CURRENT_AVM (automated refresh). Immutable. Source: STG_Property_Valuation. Range: 33K-10.9M AUD.';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.property_valuation_key IS 'Surrogate key - IDENTITY safe here (append-only; no SCD versioning)';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.property_key           IS 'FK to Property_Keymap.property_key - PI column; co-locates all valuations per property on same AMP';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyValuation_H.valuation_type         IS 'Event type: ORIGINAL=formal valuation at loan origination; CURRENT_AVM=most recent automated valuation model refresh';
@@ -1363,7 +1363,7 @@ CREATE TABLE MortgagePlatform_Domain.PropertyRisk_H (
     updated_dt                TIMESTAMP(6) WITH TIME ZONE
 ) PRIMARY INDEX (property_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.PropertyRisk_H IS 'BIAN: Collateral Asset Administration - natural hazard and environmental risk attributes. Type 2 SCD; versioned as climate risk assessments are updated. Critical for APRA risk-weighted asset calculation and lenders mortgage insurance pricing. Source: STG_Property_Valuation.';
+COMMENT ON TABLE  MortgagePlatform_Domain.PropertyRisk_H IS 'BIAN: Collateral Asset Administration - natural hazard and environmental risk. Type 2 SCD; versioned as climate risk assessments are updated. Critical for APRA RWA calculation and LMI pricing. Source: STG_Property_Valuation.';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.property_risk_key        IS 'Surrogate key - IDENTITY safe here (child entity)';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.property_key             IS 'FK to Property_Keymap.property_key - PI column';
 COMMENT ON COLUMN MortgagePlatform_Domain.PropertyRisk_H.flood_risk_zone          IS 'Flood risk classification: None, Low, Medium, High, Overland Flow. VARCHAR(15) to accommodate full "Overland Flow" value (source column truncated at 10 chars).';
@@ -1510,7 +1510,7 @@ CREATE TABLE MortgagePlatform_Domain.Payment_H (
     loaded_dt             TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
 ) PRIMARY INDEX (loan_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.Payment_H IS 'BIAN: Payment - append-only payment event log. One row per loan per reporting month. Populated by derivation from LoanPerformance_H: principal_component = opening_upb - closing_upb; interest_component = opening_upb x (current_interest_rate / 12 / 100). Supports the settlement drawdown and monthly repayment stories in the demo. Immutable once inserted.';
+COMMENT ON TABLE  MortgagePlatform_Domain.Payment_H IS 'BIAN: Payment - append-only payment event log. One row per loan per month. Derived from LoanPerformance_H: principal = opening_upb - closing_upb; interest = opening_upb x (rate/12/100). Supports drawdown and repayment demo stories. Immutable.';
 COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.payment_key           IS 'Surrogate key - IDENTITY safe here (append-only; no SCD versioning; no cross-table FK references to this key)';
 COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.loan_key              IS 'FK to Loan_Keymap.loan_key - PI column; co-locates all payments for a loan on same AMP';
 COMMENT ON COLUMN MortgagePlatform_Domain.Payment_H.payment_period_dt     IS 'First day of the monthly reporting period for which this payment event was derived.';
@@ -1551,7 +1551,7 @@ CREATE TABLE MortgagePlatform_Domain.LoanStatement_H (
     loaded_dt             TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6)
 ) PRIMARY INDEX (loan_key);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.LoanStatement_H IS 'BIAN: Customer Statement - append-only monthly loan statement record. One row per loan per statement period. Derived from LoanPerformance_H and Payment_H. Provides the clean audit trail for the regulatory lineage demo story: statement_row -> Payment_H -> LoanPerformance_H -> Loan_H -> LoanApplication_H. Immutable once inserted.';
+COMMENT ON TABLE  MortgagePlatform_Domain.LoanStatement_H IS 'BIAN: Customer Statement - append-only monthly loan statement. One row per loan per period. Derived from LoanPerformance_H and Payment_H. Lineage trail: statement -> Payment_H -> LoanPerformance_H -> Loan_H -> LoanApplication_H. Immutable once inserted.';
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.statement_key         IS 'Surrogate key - IDENTITY safe here (append-only; no cross-table FK references to this key)';
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.loan_key              IS 'FK to Loan_Keymap.loan_key - PI column';
 COMMENT ON COLUMN MortgagePlatform_Domain.LoanStatement_H.customer_key          IS 'FK to Customer_Keymap.customer_key - the borrower this statement was issued to';
@@ -1593,7 +1593,7 @@ CREATE TABLE MortgagePlatform_Domain.MortgageProduct_R (
     is_active                    BYTEINT NOT NULL DEFAULT 1
 ) UNIQUE PRIMARY INDEX (product_cd);
 
-COMMENT ON TABLE  MortgagePlatform_Domain.MortgageProduct_R IS 'BIAN: Product Directory - mortgage product catalogue. Reference table defining the standard product types from which individual loans are originated. Derived from origination data: all loans in dataset are FRM with terms 96-360 months. product_cd is the FK stored in Loan_H to link loan instances back to their product.';
+COMMENT ON TABLE  MortgagePlatform_Domain.MortgageProduct_R IS 'BIAN: Product Directory - mortgage product catalogue. Defines standard product types from which loans are originated. Derived from origination data: all loans are FRM, terms 96-360 months. product_cd is FK in Loan_H linking loans to their product.';
 COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.mortgage_product_key       IS 'Surrogate key - system-generated identity';
 COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.product_cd                 IS 'Product code stored in Loan_H - identifies the product this loan was originated under';
 COMMENT ON COLUMN MortgagePlatform_Domain.MortgageProduct_R.product_nm                 IS 'Short product display name for customer-facing and reporting use';

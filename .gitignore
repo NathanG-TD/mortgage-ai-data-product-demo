@@ -13,7 +13,7 @@ venv/
 .env
 
 # Connection / credentials — never commit these
-logon.txt
+logon*.txt
 *.env
 connection.ini
 tdconnect.ini

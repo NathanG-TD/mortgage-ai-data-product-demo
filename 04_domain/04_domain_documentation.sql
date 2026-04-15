@@ -296,7 +296,7 @@ JOIN MortgagePlatform_Domain.LoanPerformance_H prev
 WHERE curr.delinquency_status_cd <> ''RA''
   AND prev.delinquency_status_cd <> ''RA''
 ORDER BY curr.loan_key, curr.reporting_period_dt;',
- 'Adjust the ADD_MONTHS offset to compare different lag periods. Add WHERE curr.reporting_period_dt = <target_period> to restrict to a single month. Replace <target_period> with a DATE literal e.g. DATE '2025-06-01'.',
+ 'Adjust the ADD_MONTHS offset to compare different lag periods. Add WHERE curr.reporting_period_dt = <target_period> to restrict to a single month. Replace <target_period> with a DATE literal e.g. DATE ''2025-06-01''.',
  'Self-join on LoanPerformance_H uses the loan_key PI for AMP co-location  -  both sides of the join resolve to the same AMP. Performance is good for monthly reporting. For full history scans across all 9 periods, expect ~153K x 2 row reads.',
  'MEDIUM',
  'DOMAIN', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31');
