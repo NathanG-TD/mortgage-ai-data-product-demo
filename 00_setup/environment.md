@@ -9,7 +9,88 @@
 | `teradataml` | 20.0+ | `pip install teradataml` |
 | `pandas` | 2.0+ | |
 | `faker` | 24.0+ | For synthetic data generation |
-| BTEQ or `tdconnect` | Any | For SQL script execution |
+| BTEQ | 17.20+ | See installation instructions below |
+
+## Installing BTEQ
+
+BTEQ (Basic Teradata Query) is the command-line utility used to run all SQL deployment scripts in this repo. There are two ways to get it.
+
+### Option 1 — Docker (recommended, no registration required)
+
+The official Teradata Docker image is the simplest path, especially on macOS or Linux. It requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be installed first.
+
+**Pull and start the container:**
+
+```bash
+docker pull teradata/bteq
+docker run -d -e "accept_license=Y" -it --name bteq teradata/bteq:latest
+```
+
+**Run a BTEQ script from your host machine:**
+
+```bash
+docker exec -i bteq bteq < logon.txt 00_setup/create_databases.sql
+```
+
+To use the `cat logon.txt <script>.sql | bteq` pattern shown in the Quick Start, wrap it as:
+
+```bash
+cat logon.txt 00_setup/create_databases.sql | docker exec -i bteq bteq
+```
+
+Or define a shell alias to make it transparent:
+
+```bash
+alias bteq="docker exec -i bteq bteq"
+```
+
+With the alias set, all Quick Start commands work exactly as written with no further changes.
+
+**Stop/restart the container:**
+
+```bash
+docker stop bteq
+docker start bteq
+```
+
+> By accepting the license (`accept_license=Y`) you confirm you have a valid Teradata Tools and Utilities licence. The full licence agreement is at https://downloads.teradata.com/download/license/download-agreement-teradata-tools-utilities.
+
+---
+
+### Option 2 — Teradata Tools and Utilities (TTU) native install
+
+TTU includes BTEQ as a native executable alongside FastLoad, MultiLoad, and other client tools. A **free Teradata account** is required to download.
+
+**Step 1 — Create a free account:**
+
+Go to https://downloads.teradata.com and register. Approval is typically instant.
+
+**Step 2 — Download TTU 20.00 for your platform:**
+
+| Platform | Download page |
+|----------|--------------|
+| Windows | https://downloads.teradata.com/download/database/teradata-tools-and-utilities-13-10 |
+| Linux (x86-64) | https://downloads.teradata.com/download/tools/teradata-tools-and-utilities-linux-installation-package-0 |
+| macOS | https://downloads.teradata.com/download/tools/teradata-tools-and-utilities-mac-osx-installation-package |
+
+**Step 3 — Install:**
+
+- **Windows:** Run the `.exe` installer. BTEQ is added to `PATH` automatically.
+- **Linux:** Extract the tarball and run the installer script:
+  ```bash
+  tar -xf TeradataToolsAndUtilitiesBase__linux_x8664.20.00.*.tar
+  sudo ./setup.sh bteq
+  ```
+- **macOS:** Open the `.pkg` installer and follow the prompts.
+
+**Step 4 — Verify installation:**
+
+```bash
+bteq
+# Should print: Teradata BTEQ 20.xx.xx.xx ...
+# Press Ctrl+C or type .QUIT to exit
+```
+
 
 ## Teradata Connection
 
@@ -57,6 +138,7 @@ The setup script creates these databases (all owned by the user running the scri
 | `MortgagePlatform_Memory` | Agent memory, documentation, ADRs |
 | `MortgagePlatform_Semantic` | Discovery metadata, data product map |
 | `MortgagePlatform_Domain` | Core business entities |
+| `MortgagePlatform_Observability` | Change events, data quality, lineage, agent outcomes |
 
 ## Freddie Mac Data Download
 
