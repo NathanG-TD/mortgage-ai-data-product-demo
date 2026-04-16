@@ -26,3 +26,9 @@ CREATE DATABASE MortgagePlatform_Semantic
 CREATE DATABASE MortgagePlatform_Domain
     AS PERMANENT = 2e9,
        SPOOL = 2e9;
+
+-- Observability: change events, data quality metrics, lineage, agent outcomes
+-- 7-year retention (AUSTRAC AML/CTF + AASB9/IFRS9); increase PERM for production
+CREATE DATABASE MortgagePlatform_Observability
+    AS PERMANENT = 500e6,
+       SPOOL = 500e6;

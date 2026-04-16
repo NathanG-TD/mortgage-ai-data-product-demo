@@ -8,6 +8,9 @@
 -- =============================================================================
 
 -- Drop in reverse dependency order
+DELETE DATABASE MortgagePlatform_Observability ALL;
+DROP DATABASE MortgagePlatform_Observability;
+
 DELETE DATABASE MortgagePlatform_Domain ALL;
 DROP DATABASE MortgagePlatform_Domain;
 
