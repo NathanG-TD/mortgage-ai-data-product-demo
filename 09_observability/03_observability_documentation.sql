@@ -149,50 +149,55 @@ INSERT INTO MortgagePlatform_Memory.Business_Glossary
  source_module, module_version, is_active, valid_from, valid_to, created_timestamp)
 VALUES
 ('Data Lineage',
+ 'GOVERNANCE',
  'The documented chain of custody for data from its source system through all transformations to its current state in the Domain module. Required for AASB9/IFRS9 expected credit loss audit and AML/CTF transaction trace.',
  'Regulatory compliance and audit. In this product, lineage is split into definitional (data_lineage table - the blueprint) and operational (lineage_run table - the execution history).',
  'data_lineage, lineage_run, lineage_graph, lineage_run_latest',
- 'OBSERVABILITY', 1);
+ 'OBSERVABILITY', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
 
 INSERT INTO MortgagePlatform_Memory.Business_Glossary
 (term, term_category, definition, business_context, related_table,
  source_module, module_version, is_active, valid_from, valid_to, created_timestamp)
 VALUES
 ('Data Quality Gate',
+ 'GOVERNANCE',
  'A pre-calculation check that verifies Domain table quality scores are above defined thresholds before running regulatory calculations. Agents must query v_quality_failures and confirm zero rows before using data for AASB9/IFRS9 or AML calculations.',
  'Agent workflow and regulatory compliance. A failed quality gate means the agent must surface the quality issue to the user before proceeding with the calculation.',
  'data_quality_metric, v_quality_failures',
- 'OBSERVABILITY', 1);
+ 'OBSERVABILITY', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
 
 INSERT INTO MortgagePlatform_Memory.Business_Glossary
 (term, term_category, definition, business_context, related_table,
  source_module, module_version, is_active, valid_from, valid_to, created_timestamp)
 VALUES
 ('ETL_INPUT / ETL_OUTPUT',
+ 'DATA_PATTERN',
  'Edge relationship labels in the lineage_graph view. ETL_INPUT represents a source table feeding into a transformation job. ETL_OUTPUT represents a transformation job writing to a target table. Together they form a two-hop path: source -> job -> target.',
  'Used when interpreting lineage_graph results for data catalogue integration or graph visualisation. Both edges share the same Lineage_ID, which links back to the data_lineage definition row.',
  'lineage_graph, data_lineage',
- 'OBSERVABILITY', 1);
+ 'OBSERVABILITY', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
 
 INSERT INTO MortgagePlatform_Memory.Business_Glossary
 (term, term_category, definition, business_context, related_table,
  source_module, module_version, is_active, valid_from, valid_to, created_timestamp)
 VALUES
 ('Confidence Score',
+ 'AI_CONCEPT',
  'A decimal value from 0.0000 to 1.0000 representing the mapping or analytics agent''s certainty in its output. For the mapping agent: the proportion of columns confidently mapped to domain targets. For the analytics agent: the model''s confidence that the generated SQL correctly answers the question.',
  'Agent quality monitoring. Low confidence scores (below 0.70) should trigger human review. Score trends by source system inform which source feeds need domain model enhancement.',
  'agent_outcome',
- 'OBSERVABILITY', 1);
+ 'OBSERVABILITY', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
 
 INSERT INTO MortgagePlatform_Memory.Business_Glossary
 (term, term_category, definition, business_context, related_table,
  source_module, module_version, is_active, valid_from, valid_to, created_timestamp)
 VALUES
 ('Closed-Loop Learning',
+ 'AI_CONCEPT',
  'The pattern by which agent outcome records feed back into the Memory module to improve future agent behaviour. Mapping outcomes update naming conventions and entity descriptions. Analytics outcomes update query cookbook recipes. Requires periodic review of v_agent_outcomes_recent.',
  'AI-native data product design principle. MortgagePlatform implements this pattern via agent_outcome -> Business_Glossary and agent_outcome -> Query_Cookbook update workflows.',
  'agent_outcome, v_agent_outcomes_recent',
- 'OBSERVABILITY', 1);
+ 'OBSERVABILITY', '1.0.0', 1, CURRENT_DATE, DATE '9999-12-31', CURRENT_TIMESTAMP(6));
 
 
 -- =============================================================================
@@ -200,7 +205,7 @@ VALUES
 -- =============================================================================
 
 INSERT INTO MortgagePlatform_Memory.Change_Log
-(change_id, change_version, change_title, change_description,
+(change_id, version_number, change_title, change_description,
  change_type, breaking_change, affected_tables,
  migration_notes, source_module, is_current, valid_from, valid_to,
  created_timestamp)
