@@ -30,3 +30,6 @@ Thumbs.db
 # Outputs
 05_mapping_agent/sample_outputs/*.xlsx
 !05_mapping_agent/mapping_output_template.xlsx
+
+# Skill
+05_mapping_agent/*.skill

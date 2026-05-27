@@ -1,13 +1,13 @@
 -- =============================================================================
 -- 03_observability_documentation.sql
--- MortgagePlatform_Observability — Memory Documentation
+-- MortgagePlatform_Observability - Memory Documentation
 --
 -- Run after: 02_observability_registration.sql
 -- Populates:
---   1. Design_Decision  — DD-OBS-001, DD-OBS-002, DD-OBS-003, DD-OBS-004
---   2. Query_Cookbook   — QC-OBS-001, QC-OBS-002, QC-OBS-003
---   3. Business_Glossary — 5 Observability terms
---   4. Change_Log       — initial release entry v1.0.0
+--   1. Design_Decision  - DD-OBS-001, DD-OBS-002, DD-OBS-003, DD-OBS-004
+--   2. Query_Cookbook   - QC-OBS-001, QC-OBS-002, QC-OBS-003
+--   3. Business_Glossary - 5 Observability terms
+--   4. Change_Log       - initial release entry v1.0.0
 -- =============================================================================
 
 
@@ -206,15 +206,17 @@ VALUES
 
 INSERT INTO MortgagePlatform_Memory.Change_Log
 (change_id, version_number, change_title, change_description,
- change_type, breaking_change, affected_tables,
- migration_notes, source_module, is_current, valid_from, valid_to,
- created_timestamp)
+ change_type, change_category, affects_table,
+ migration_steps, rollback_steps,
+ source_module, deployed_date, deployed_by, deployment_status,
+ related_decision_id, created_timestamp)
 VALUES
 ('CL-OBS-001', '1.0.0',
  'Initial release - Observability module deployed (Phase 2b)',
  'First deployment of MortgagePlatform_Observability. Tables: change_event, data_quality_metric, data_lineage (definitional), lineage_run (operational), agent_outcome. Views: v_quality_failures, v_recent_changes, v_agent_outcomes_recent (in Observability); lineage_graph, lineage_run_latest (in Semantic). 8 lineage flows declared in data_lineage seed data (see 04_observability_seed.sql). Quality monitoring configured for 7 core Domain tables.',
- 'INITIAL_RELEASE', 0,
+ 'INITIAL_RELEASE', 'MODULE_DEPLOYMENT',
  'change_event, data_quality_metric, data_lineage, lineage_run, agent_outcome',
- 'New module - no migration required. lineage_graph and lineage_run_latest views replace previous placeholder in Semantic. Seed data in 04_observability_seed.sql must be run after this file.',
- 'OBSERVABILITY', 1, CURRENT_DATE, DATE '9999-12-31',
- CURRENT_TIMESTAMP(6));
+ 'New module - no migration required. Run 04_observability_seed.sql after this file.',
+ NULL,
+ 'OBSERVABILITY', CURRENT_DATE, 'Data Architecture Team', 'DEPLOYED',
+ NULL, CURRENT_TIMESTAMP(6));

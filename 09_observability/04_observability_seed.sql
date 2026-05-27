@@ -1,10 +1,10 @@
 -- =============================================================================
 -- 04_observability_seed.sql
--- MortgagePlatform_Observability — Lineage Seed Data
+-- MortgagePlatform_Observability - Lineage Seed Data
 --
 -- Run after: 03_observability_documentation.sql
 -- Declares all 8 structural data flows in data_lineage.
--- These are definitional rows (the blueprint) — one row per source->job->target.
+-- These are definitional rows (the blueprint) - one row per source->job->target.
 -- Execution history will be added to lineage_run when ETL pipelines run.
 --
 -- Flow inventory:

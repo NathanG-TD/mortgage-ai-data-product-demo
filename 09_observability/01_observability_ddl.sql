@@ -1,14 +1,14 @@
 -- =============================================================================
 -- 01_observability_ddl.sql
--- MortgagePlatform_Observability — DDL
+-- MortgagePlatform_Observability - DDL
 --
 -- Deploy order: after Memory and Semantic are deployed
 -- Tables:
---   1. change_event         — table-level ETL change tracking
---   2. data_quality_metric  — quality scores for Domain tables
---   3. data_lineage         — definitional lineage blueprint (source->job->target)
---   4. lineage_run          — operational execution log per flow
---   5. agent_outcome        — mapping and analytics agent outcome records
+--   1. change_event         - table-level ETL change tracking
+--   2. data_quality_metric  - quality scores for Domain tables
+--   3. data_lineage         - definitional lineage blueprint (source->job->target)
+--   4. lineage_run          - operational execution log per flow
+--   5. agent_outcome        - mapping and analytics agent outcome records
 --
 -- Primary Index strategy:
 --   change_event, data_quality_metric, agent_outcome: PI on surrogate key
@@ -52,13 +52,13 @@ PARTITION BY RANGE_N(
 );
 
 COMMENT ON TABLE MortgagePlatform_Observability.change_event IS
-'Table-level ETL change tracking — one row per load operation against a Domain table. Tracks what changed, when, how many rows, and which process. Partitioned monthly.';
+'Table-level ETL change tracking - one row per load operation against a Domain table. Tracks what changed, when, how many rows, and which process. Partitioned monthly.';
 COMMENT ON COLUMN MortgagePlatform_Observability.change_event.operation_type IS
 'ETL operation type: INSERT, UPDATE, DELETE, TRUNCATE, LOAD';
 COMMENT ON COLUMN MortgagePlatform_Observability.change_event.batch_key IS
-'Batch run identifier — correlates with lineage_run.batch_key to link change events to their declared lineage flow execution';
+'Batch run identifier - correlates with lineage_run.batch_key to link change events to their declared lineage flow execution';
 COMMENT ON COLUMN MortgagePlatform_Observability.change_event.event_context IS
-'Flexible JSON metadata — pipeline parameters, environment tags, custom context';
+'Flexible JSON metadata - pipeline parameters, environment tags, custom context';
 COMMENT ON COLUMN MortgagePlatform_Observability.change_event.is_successful IS
 '1 = load completed successfully; 0 = load failed or was rolled back';
 
@@ -92,24 +92,24 @@ PARTITION BY RANGE_N(
 );
 
 COMMENT ON TABLE MortgagePlatform_Observability.data_quality_metric IS
-'Quality scores for Domain tables — one row per table per rule per evaluation. Agents check v_quality_failures before using data for regulatory calculations. Partitioned monthly.';
+'Quality scores for Domain tables - one row per table per rule per evaluation. Agents check v_quality_failures before using data for regulatory calculations. Partitioned monthly.';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_quality_metric.metric_name IS
-'Quality rule identifier — e.g. COMPLETENESS_loan_id, VALIDITY_credit_score, NULL_RATE_customer_key';
+'Quality rule identifier - e.g. COMPLETENESS_loan_id, VALIDITY_credit_score, NULL_RATE_customer_key';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_quality_metric.metric_value IS
-'Measured value of the quality metric — e.g. 0.9980 for 99.80% completeness';
+'Measured value of the quality metric - e.g. 0.9980 for 99.80% completeness';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_quality_metric.threshold_value IS
-'Minimum acceptable value — rows with metric_value below this set is_below_threshold = 1';
+'Minimum acceptable value - rows with metric_value below this set is_below_threshold = 1';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_quality_metric.is_below_threshold IS
 '1 = metric failed threshold and requires attention; 0 = metric passed';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_quality_metric.quality_context IS
-'Human-readable context — sample failing values, rule description, recommended action';
+'Human-readable context - sample failing values, rule description, recommended action';
 
 COLLECT STATISTICS COLUMN (measured_at) ON MortgagePlatform_Observability.data_quality_metric;
 COLLECT STATISTICS COLUMN (table_name, is_below_threshold) ON MortgagePlatform_Observability.data_quality_metric;
 
 
 -- =============================================================================
--- 3. data_lineage (Definitional — OpenLineage aligned)
+-- 3. data_lineage (Definitional - OpenLineage aligned)
 -- =============================================================================
 
 CREATE MULTISET TABLE MortgagePlatform_Observability.data_lineage,
@@ -134,11 +134,11 @@ CREATE MULTISET TABLE MortgagePlatform_Observability.data_lineage,
 PRIMARY INDEX (lineage_id);
 
 COMMENT ON TABLE MortgagePlatform_Observability.data_lineage IS
-'Definitional lineage blueprint — one row per declared source-to-target flow. Changes only when pipeline design changes. Execution history is in lineage_run. Consumed by lineage_graph view.';
+'Definitional lineage blueprint - one row per declared source-to-target flow. Changes only when pipeline design changes. Execution history is in lineage_run. Consumed by lineage_graph view.';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.lineage_id IS
-'Surrogate key for lineage definition — FK target for lineage_run.lineage_id';
+'Surrogate key for lineage definition - FK target for lineage_run.lineage_id';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.source_system IS
-'External source system name — e.g. Freddie Mac, CRM. NULL if source is an internal Teradata table.';
+'External source system name - e.g. Freddie Mac, CRM. NULL if source is an internal Teradata table.';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.transformation_type IS
 'Transformation type: ETL, FEATURE_ENG, AGGREGATION, JOIN, EMBEDDING_GEN, FILTER';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.transformation_logic IS
@@ -146,14 +146,14 @@ COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.transformation_log
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.is_active IS
 '1 = live flow in current pipeline design; 0 = retired flow preserved for historical reference';
 COMMENT ON COLUMN MortgagePlatform_Observability.data_lineage.retired_dts IS
-'Timestamp when this flow was retired — NULL while active, set when is_active transitions to 0';
+'Timestamp when this flow was retired - NULL while active, set when is_active transitions to 0';
 
 COLLECT STATISTICS COLUMN (lineage_id) ON MortgagePlatform_Observability.data_lineage;
 COLLECT STATISTICS COLUMN (is_active) ON MortgagePlatform_Observability.data_lineage;
 
 
 -- =============================================================================
--- 4. lineage_run (Operational — Execution Log)
+-- 4. lineage_run (Operational - Execution Log)
 -- =============================================================================
 
 CREATE MULTISET TABLE MortgagePlatform_Observability.lineage_run,
@@ -181,17 +181,17 @@ PARTITION BY RANGE_N(
 );
 
 COMMENT ON TABLE MortgagePlatform_Observability.lineage_run IS
-'Operational execution log — one row per run of a declared lineage flow. PI on lineage_id co-locates executions with their flow definition for efficient lineage_run_latest queries. Event-scale volume.';
+'Operational execution log - one row per run of a declared lineage flow. PI on lineage_id co-locates executions with their flow definition for efficient lineage_run_latest queries. Event-scale volume.';
 COMMENT ON COLUMN MortgagePlatform_Observability.lineage_run.lineage_id IS
-'FK to data_lineage.lineage_id — PI column; co-locates all executions for a flow on the same AMP as its definition';
+'FK to data_lineage.lineage_id - PI column; co-locates all executions for a flow on the same AMP as its definition';
 COMMENT ON COLUMN MortgagePlatform_Observability.lineage_run.run_status IS
 'Execution status: SUCCESS (completed), FAILED (aborted), PARTIAL (completed with rejected rows), RUNNING (in progress)';
 COMMENT ON COLUMN MortgagePlatform_Observability.lineage_run.records_rejected IS
-'Rows rejected during transformation — validation failures, type mismatches, constraint violations';
+'Rows rejected during transformation - validation failures, type mismatches, constraint violations';
 COMMENT ON COLUMN MortgagePlatform_Observability.lineage_run.job_name IS
-'Denormalised from data_lineage — enables fast filtering without joining to the definition table';
+'Denormalised from data_lineage - enables fast filtering without joining to the definition table';
 COMMENT ON COLUMN MortgagePlatform_Observability.lineage_run.error_message IS
-'First 2000 characters of error message for FAILED or PARTIAL runs — for diagnostic triage';
+'First 2000 characters of error message for FAILED or PARTIAL runs - for diagnostic triage';
 
 COLLECT STATISTICS COLUMN (lineage_id) ON MortgagePlatform_Observability.lineage_run;
 COLLECT STATISTICS COLUMN (run_dts) ON MortgagePlatform_Observability.lineage_run;
@@ -234,11 +234,11 @@ COMMENT ON TABLE MortgagePlatform_Observability.agent_outcome IS
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.agent_type IS
 'Agent identifier: MAPPING_AGENT or ANALYTICS_AGENT';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.session_key IS
-'Reference to MortgagePlatform_Memory.agent_session.session_key — no physical FK across databases';
+'Reference to MortgagePlatform_Memory.agent_session.session_key - no physical FK across databases';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.outcome_type IS
 'MAPPING_AGENT: MAPPING_COMPLETE, MAPPING_PARTIAL, MAPPING_FAILED. ANALYTICS_AGENT: QUERY_ANSWERED, QUERY_FAILED, QUERY_CLARIFIED';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.confidence_score IS
-'Model confidence 0.0000-1.0000 — mapping agent: column-level confidence; analytics agent: query confidence';
+'Model confidence 0.0000-1.0000 - mapping agent: column-level confidence; analytics agent: query confidence';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.user_feedback IS
 'User quality signal: POSITIVE, NEUTRAL, NEGATIVE. NULL if no feedback provided.';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.source_system IS
@@ -250,9 +250,9 @@ COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.columns_unmapped 
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.sql_generated IS
 'ANALYTICS_AGENT: SQL query generated in response to the natural language request';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.rows_returned IS
-'ANALYTICS_AGENT: aggregate row count returned — never individual keys or result data';
+'ANALYTICS_AGENT: aggregate row count returned - never individual keys or result data';
 COMMENT ON COLUMN MortgagePlatform_Observability.agent_outcome.outcome_context IS
-'Flexible JSON context — unmapped column names, clarification requests, model reasoning';
+'Flexible JSON context - unmapped column names, clarification requests, model reasoning';
 
 COLLECT STATISTICS COLUMN (outcome_dts) ON MortgagePlatform_Observability.agent_outcome;
 COLLECT STATISTICS COLUMN (agent_type, outcome_type) ON MortgagePlatform_Observability.agent_outcome;
@@ -260,7 +260,7 @@ COLLECT STATISTICS COLUMN (user_feedback) ON MortgagePlatform_Observability.agen
 
 
 -- =============================================================================
--- VIEWS — Observability database
+-- VIEWS - Observability database
 -- =============================================================================
 
 REPLACE VIEW MortgagePlatform_Observability.v_quality_failures AS
@@ -271,7 +271,7 @@ FROM MortgagePlatform_Observability.data_quality_metric
 WHERE is_below_threshold = 1;
 
 COMMENT ON VIEW MortgagePlatform_Observability.v_quality_failures IS
-'Domain tables currently failing quality thresholds — agents check this before using data for AASB9/IFRS9 or AML calculations';
+'Domain tables currently failing quality thresholds - agents check this before using data for AASB9/IFRS9 or AML calculations';
 
 REPLACE VIEW MortgagePlatform_Observability.v_recent_changes AS
 SELECT database_name, table_name, operation_type,
@@ -281,7 +281,7 @@ WHERE event_dts >= CURRENT_TIMESTAMP(6) - INTERVAL '7' DAY
   AND is_successful = 1;
 
 COMMENT ON VIEW MortgagePlatform_Observability.v_recent_changes IS
-'Successful change events from the last 7 days — quick view of recent Domain table loads';
+'Successful change events from the last 7 days - quick view of recent Domain table loads';
 
 REPLACE VIEW MortgagePlatform_Observability.v_agent_outcomes_recent AS
 SELECT agent_type, outcome_type, confidence_score, user_feedback,
@@ -291,15 +291,15 @@ FROM MortgagePlatform_Observability.agent_outcome
 WHERE outcome_dts >= CURRENT_TIMESTAMP(6) - INTERVAL '30' DAY;
 
 COMMENT ON VIEW MortgagePlatform_Observability.v_agent_outcomes_recent IS
-'Agent outcomes from the last 30 days — review mapping quality and analytics query patterns';
+'Agent outcomes from the last 30 days - review mapping quality and analytics query patterns';
 
 
 -- =============================================================================
--- VIEWS — Semantic database (agent discovery and graph visualisation)
+-- VIEWS - Semantic database (agent discovery and graph visualisation)
 -- Deploy these to MortgagePlatform_Semantic, not MortgagePlatform_Observability
 -- =============================================================================
 
--- lineage_graph: graph-ready edge list — source->job and job->target edges
+-- lineage_graph: graph-ready edge list - source->job and job->target edges
 -- Each data_lineage row becomes two edges in the UNION ALL.
 -- CAST() is required on all literals and job_name in UNION ALL legs to prevent
 -- Teradata type-width truncation (e.g. 'ETL_INPUT' 9 chars would truncate
@@ -368,7 +368,7 @@ LOCKING ROW FOR ACCESS
     WHERE dl.is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.lineage_graph IS
-'Graph-ready edge list — each data_lineage row becomes two edges: source-to-job (ETL_INPUT) and job-to-target (ETL_OUTPUT). Reads definitional table only; no duplicate edges from repeated executions.';
+'Graph-ready edge list - each data_lineage row becomes two edges: source-to-job (ETL_INPUT) and job-to-target (ETL_OUTPUT). Reads definitional table only; no duplicate edges from repeated executions.';
 
 
 -- lineage_run_latest: each active flow joined to its most recent execution
@@ -403,11 +403,11 @@ LEFT OUTER JOIN MortgagePlatform_Observability.lineage_run AS lr
 WHERE dl.is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.lineage_run_latest IS
-'Each active lineage flow joined to its most recent execution — shows last run status, duration, and record counts alongside the flow blueprint. Agent entry point for pipeline health queries.';
+'Each active lineage flow joined to its most recent execution - shows last run status, duration, and record counts alongside the flow blueprint. Agent entry point for pipeline health queries.';
 
 
 -- =============================================================================
--- GRANT — cross-database access for Semantic views
+-- GRANT - cross-database access for Semantic views
 -- Required so that lineage_graph and lineage_run_latest in MortgagePlatform_Semantic
 -- can read from MortgagePlatform_Observability tables.
 -- =============================================================================
