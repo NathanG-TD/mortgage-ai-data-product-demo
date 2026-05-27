@@ -424,7 +424,7 @@ SELECT
 FROM MortgagePlatform_Staging.STG_Property_Valuation           pv
 JOIN MortgagePlatform_Domain.Property_Keymap                   pk ON pk.property_id = TRIM(pv.PROPERTY_ID);
 
--- 5.3 PropertyValuation_H — two rows per property (ORIGINAL + CURRENT_AVM)
+-- 5.3 PropertyValuation_H - two rows per property (ORIGINAL + CURRENT_AVM)
 -- Row 1: original formal valuation at origination
 INSERT INTO MortgagePlatform_Domain.PropertyValuation_H (
     property_key, valuation_type, valuation_dt,

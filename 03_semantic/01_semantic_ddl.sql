@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 01_semantic_ddl.sql
--- MortgagePlatform_Semantic — DDL
+-- MortgagePlatform_Semantic - DDL
 --
 -- Deploy order: after 02_memory/ scripts, before 02_semantic_registration.sql
 -- =============================================================================
@@ -19,9 +19,9 @@ CREATE MULTISET TABLE MortgagePlatform_Semantic.data_product_map,
 PRIMARY INDEX (map_key);
 
 COMMENT ON TABLE MortgagePlatform_Semantic.data_product_map IS
-'Agent bootstrap table — first query an agent runs to discover all deployed modules and their locations';
+'Agent bootstrap table - first query an agent runs to discover all deployed modules and their locations';
 COMMENT ON COLUMN MortgagePlatform_Semantic.data_product_map.primary_tables IS
-'Comma-separated key tables in this module — agent orientation';
+'Comma-separated key tables in this module - agent orientation';
 COMMENT ON COLUMN MortgagePlatform_Semantic.data_product_map.agent_entry_view IS
 'Recommended first view for agent exploration of this module';
 
@@ -45,13 +45,13 @@ CREATE MULTISET TABLE MortgagePlatform_Semantic.entity_metadata,
 PRIMARY INDEX (entity_metadata_key);
 
 COMMENT ON TABLE MortgagePlatform_Semantic.entity_metadata IS
-'Catalog of all tables across all modules — agent entry point for entity discovery';
+'Catalog of all tables across all modules - agent entry point for entity discovery';
 COMMENT ON COLUMN MortgagePlatform_Semantic.entity_metadata.module_name IS
 'Module this entity belongs to: STAGING, DOMAIN, SEMANTIC, MEMORY';
 COMMENT ON COLUMN MortgagePlatform_Semantic.entity_metadata.natural_key_column IS
-'Business key column — identifier meaningful to the business (e.g. LOAN_SEQUENCE_NUMBER)';
+'Business key column - identifier meaningful to the business (e.g. LOAN_SEQUENCE_NUMBER)';
 COMMENT ON COLUMN MortgagePlatform_Semantic.entity_metadata.surrogate_key_column IS
-'System-generated integer PK — not applicable for staging tables';
+'System-generated integer PK - not applicable for staging tables';
 COMMENT ON COLUMN MortgagePlatform_Semantic.entity_metadata.entity_category IS
 'Category: SOURCE_SYSTEM, LOAN, CUSTOMER, PROPERTY, PERFORMANCE, COMPLIANCE, MEMORY, METADATA';
 COMMENT ON COLUMN MortgagePlatform_Semantic.entity_metadata.is_active IS
@@ -77,11 +77,11 @@ CREATE MULTISET TABLE MortgagePlatform_Semantic.column_metadata,
 PRIMARY INDEX (column_metadata_key);
 
 COMMENT ON TABLE MortgagePlatform_Semantic.column_metadata IS
-'Column-level metadata for key columns — agents use to understand what each column means and its governance status';
+'Column-level metadata for key columns - agents use to understand what each column means and its governance status';
 COMMENT ON COLUMN MortgagePlatform_Semantic.column_metadata.is_pii IS
 '1 = personally identifiable information; apply data governance controls before use';
 COMMENT ON COLUMN MortgagePlatform_Semantic.column_metadata.is_sensitive IS
-'1 = sensitive data requiring elevated access (AML, credit impairment, bankruptcy) — not necessarily PII';
+'1 = sensitive data requiring elevated access (AML, credit impairment, bankruptcy) - not necessarily PII';
 COMMENT ON COLUMN MortgagePlatform_Semantic.column_metadata.sample_values IS
 'Pipe-separated representative values to help agents understand domain (e.g. P|C|N for LOAN_PURPOSE)';
 COMMENT ON COLUMN MortgagePlatform_Semantic.column_metadata.validation_rule IS
@@ -108,7 +108,7 @@ CREATE MULTISET TABLE MortgagePlatform_Semantic.table_relationship,
 PRIMARY INDEX (relationship_key);
 
 COMMENT ON TABLE MortgagePlatform_Semantic.table_relationship IS
-'Join relationships between all tables — drives multi-hop path discovery in v_relationship_paths';
+'Join relationships between all tables - drives multi-hop path discovery in v_relationship_paths';
 COMMENT ON COLUMN MortgagePlatform_Semantic.table_relationship.relationship_type IS
 'FOREIGN_KEY = enforced FK; SEMANTIC = logical join; DERIVED = computed relationship';
 COMMENT ON COLUMN MortgagePlatform_Semantic.table_relationship.join_type IS
@@ -132,15 +132,15 @@ CREATE MULTISET TABLE MortgagePlatform_Semantic.naming_standard,
 PRIMARY INDEX (naming_standard_key);
 
 COMMENT ON TABLE MortgagePlatform_Semantic.naming_standard IS
-'Naming conventions and abbreviations — agents consult to interpret column and table names correctly';
+'Naming conventions and abbreviations - agents consult to interpret column and table names correctly';
 COMMENT ON COLUMN MortgagePlatform_Semantic.naming_standard.standard_type IS
-'SUFFIX, PREFIX, ABBREVIATION, CONVENTION — classification of naming pattern';
+'SUFFIX, PREFIX, ABBREVIATION, CONVENTION - classification of naming pattern';
 
 -- ---------------------------------------------------------------------------
 -- VIEWS
 -- ---------------------------------------------------------------------------
 
--- Multi-hop relationship path discovery — TESTED ✅ DO NOT MODIFY
+-- Multi-hop relationship path discovery - TESTED ✅ DO NOT MODIFY
 REPLACE VIEW MortgagePlatform_Semantic.v_relationship_paths AS
 WITH RECURSIVE path_cte (
     source_table, target_table, hop_count,
@@ -177,7 +177,7 @@ SELECT source_table, target_table, hop_count, path_tables, path_joins
 FROM path_cte;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_relationship_paths IS
-'Multi-hop join path discovery — find all paths between any two tables up to 5 hops; agents generate JOIN chains from path_joins column';
+'Multi-hop join path discovery - find all paths between any two tables up to 5 hops; agents generate JOIN chains from path_joins column';
 
 REPLACE VIEW MortgagePlatform_Semantic.v_entity_catalog AS
 SELECT module_name, entity_name, database_name, table_name, view_name,
@@ -186,7 +186,7 @@ FROM MortgagePlatform_Semantic.entity_metadata
 WHERE is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_entity_catalog IS
-'All active entities across all modules — agent overview of what tables exist and where';
+'All active entities across all modules - agent overview of what tables exist and where';
 
 REPLACE VIEW MortgagePlatform_Semantic.v_pii_columns AS
 SELECT database_name, table_name, column_name, business_description
@@ -194,7 +194,7 @@ FROM MortgagePlatform_Semantic.column_metadata
 WHERE is_pii = 1 AND is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_pii_columns IS
-'All PII columns across the data product — governance and access control reference for agents and compliance';
+'All PII columns across the data product - governance and access control reference for agents and compliance';
 
 REPLACE VIEW MortgagePlatform_Semantic.v_sensitive_columns AS
 SELECT database_name, table_name, column_name, business_description, is_pii
@@ -202,4 +202,4 @@ FROM MortgagePlatform_Semantic.column_metadata
 WHERE is_sensitive = 1 AND is_active = 1;
 
 COMMENT ON VIEW MortgagePlatform_Semantic.v_sensitive_columns IS
-'All sensitive columns (PII and regulated non-PII such as AML, bankruptcy) — agents must flag these in mapping outputs';
+'All sensitive columns (PII and regulated non-PII such as AML, bankruptcy) - agents must flag these in mapping outputs';

@@ -1,19 +1,19 @@
 -- =============================================================================
 -- 02_observability_registration.sql
--- MortgagePlatform_Observability — Semantic Registration & Seed Data
+-- MortgagePlatform_Observability - Semantic Registration & Seed Data
 --
 -- Run after: 01_observability_ddl.sql
 -- Updates:
---   1. data_product_map           — add OBSERVABILITY entry (now deployed)
---   2. entity_metadata            — 5 Observability entities
---   3. table_relationship         — lineage_run -> data_lineage FK
---   4. column_metadata            — sensitive columns (sql_generated, context)
---   5. Module_Registry            — OBSERVABILITY PLANNED -> DEPLOYED
+--   1. data_product_map           - add OBSERVABILITY entry (now deployed)
+--   2. entity_metadata            - 5 Observability entities
+--   3. table_relationship         - lineage_run -> data_lineage FK
+--   4. column_metadata            - sensitive columns (sql_generated, context)
+--   5. Module_Registry            - OBSERVABILITY PLANNED -> DEPLOYED
 -- =============================================================================
 
 
 -- =============================================================================
--- 1. data_product_map — add Observability (deployed modules only)
+-- 1. data_product_map - add Observability (deployed modules only)
 -- =============================================================================
 
 INSERT INTO MortgagePlatform_Semantic.data_product_map
@@ -28,7 +28,7 @@ VALUES
 
 
 -- =============================================================================
--- 2. entity_metadata — 5 Observability tables
+-- 2. entity_metadata - 5 Observability tables
 -- =============================================================================
 
 INSERT INTO MortgagePlatform_Semantic.entity_metadata
@@ -88,7 +88,7 @@ VALUES
 
 
 -- =============================================================================
--- 3. table_relationship — lineage_run FK + cross-module context references
+-- 3. table_relationship - lineage_run FK + cross-module context references
 -- =============================================================================
 
 -- Physical FK within Observability
@@ -125,7 +125,7 @@ VALUES
 
 
 -- =============================================================================
--- 4. column_metadata — sensitive columns in agent_outcome
+-- 4. column_metadata - sensitive columns in agent_outcome
 -- sql_generated and outcome_context may contain user query intent or
 -- partial data values; flagged is_sensitive for governance visibility.
 -- =============================================================================
@@ -148,7 +148,7 @@ VALUES
 
 
 -- =============================================================================
--- 5. Module_Registry — OBSERVABILITY PLANNED -> DEPLOYED (temporal update)
+-- 5. Module_Registry - OBSERVABILITY PLANNED -> DEPLOYED (temporal update)
 -- =============================================================================
 
 -- Close the PLANNED row

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 02_semantic_registration.sql
--- MortgagePlatform_Semantic — data_product_map, entity_metadata,
+-- MortgagePlatform_Semantic - data_product_map, entity_metadata,
 --                              column_metadata, table_relationship,
 --                              naming_standard registrations
 --
@@ -10,7 +10,7 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- data_product_map — one row per deployed module (agent bootstrap)
+-- data_product_map - one row per deployed module (agent bootstrap)
 -- ---------------------------------------------------------------------------
 
 INSERT INTO MortgagePlatform_Semantic.data_product_map
@@ -26,7 +26,7 @@ INSERT INTO MortgagePlatform_Semantic.data_product_map
 (module_name, database_name, module_purpose, primary_tables, agent_entry_view, is_active)
 VALUES
 ('SEMANTIC', 'MortgagePlatform_Semantic',
- 'Queryable metadata layer for autonomous agent discovery. Contains entity catalog, column metadata, join relationships, and naming standards. This module is self-describing — querying it reveals the full structure of all other modules.',
+ 'Queryable metadata layer for autonomous agent discovery. Contains entity catalog, column metadata, join relationships, and naming standards. This module is self-describing - querying it reveals the full structure of all other modules.',
  'data_product_map, entity_metadata, column_metadata, table_relationship, naming_standard',
  'MortgagePlatform_Semantic.v_entity_catalog',
  1);
@@ -35,13 +35,13 @@ INSERT INTO MortgagePlatform_Semantic.data_product_map
 (module_name, database_name, module_purpose, primary_tables, agent_entry_view, is_active)
 VALUES
 ('STAGING', 'MortgagePlatform_Staging',
- 'Raw source data staging layer. Four source systems: Loan Origination (Freddie Mac), Loan Servicing (Freddie Mac), CRM Customer Master (synthetic), Collateral Management (synthetic). Columns mirror source file layouts exactly — no transformations applied. COMMENT ON metadata on each column provides the semantic bridge for mapping agents.',
+ 'Raw source data staging layer. Four source systems: Loan Origination (Freddie Mac), Loan Servicing (Freddie Mac), CRM Customer Master (synthetic), Collateral Management (synthetic). Columns mirror source file layouts exactly - no transformations applied. COMMENT ON metadata on each column provides the semantic bridge for mapping agents.',
  'STG_Freddie_Origination, STG_Freddie_Performance, STG_Borrower_Profile, STG_Property_Valuation',
  NULL,
  1);
 
 -- ---------------------------------------------------------------------------
--- entity_metadata — all staging tables
+-- entity_metadata - all staging tables
 -- ---------------------------------------------------------------------------
 
 INSERT INTO MortgagePlatform_Semantic.entity_metadata
@@ -97,7 +97,7 @@ VALUES
 ('MEMORY', 'AgentSession', 'MortgagePlatform_Memory',
  'agent_session', 'v_active_sessions',
  'session_id', 'session_key',
- 'Agent session state — tracks active and historical sessions for continuity across interactions',
+ 'Agent session state - tracks active and historical sessions for continuity across interactions',
  'MEMORY', 0, 1);
 
 INSERT INTO MortgagePlatform_Semantic.entity_metadata
@@ -108,7 +108,7 @@ VALUES
 ('MEMORY', 'BusinessGlossary', 'MortgagePlatform_Memory',
  'Business_Glossary', NULL,
  'term', 'glossary_key',
- 'Mortgage domain business term definitions — reduces tacit knowledge dependency; covers LTV, CLTV, DTI, Zero Balance Codes, AML, and credit score scale differences',
+ 'Mortgage domain business term definitions - reduces tacit knowledge dependency; covers LTV, CLTV, DTI, Zero Balance Codes, AML, and credit score scale differences',
  'MEMORY', 0, 1);
 
 INSERT INTO MortgagePlatform_Semantic.entity_metadata
@@ -119,11 +119,11 @@ VALUES
 ('MEMORY', 'QueryCookbook', 'MortgagePlatform_Memory',
  'Query_Cookbook', NULL,
  'recipe_id', 'recipe_key',
- 'Proven SQL query patterns for mortgage data — churn detection, cross-source joins, delinquency analysis',
+ 'Proven SQL query patterns for mortgage data - churn detection, cross-source joins, delinquency analysis',
  'MEMORY', 0, 1);
 
 -- ---------------------------------------------------------------------------
--- column_metadata — key columns per staging table
+-- column_metadata - key columns per staging table
 -- ---------------------------------------------------------------------------
 
 -- STG_Freddie_Origination key columns
@@ -144,7 +144,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Freddie_Origination',
  'ORIG_UPB',
- 'Original Unpaid Principal Balance — the face amount of the loan at origination in USD. Primary loan size metric.',
+ 'Original Unpaid Principal Balance - the face amount of the loan at origination in USD. Primary loan size metric.',
  'DECIMAL(15,2)', 0, 0, 1,
  '143000.00|76000.00|189000.00|333000.00',
  'Must be > 0. Currency: USD (Freddie Mac data). Convert to AUD for Australian domain model.', 1);
@@ -177,7 +177,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Freddie_Origination',
  'CREDIT_SCORE',
- 'Borrower FICO credit score at origination. Range 300-850. IMPORTANT: This uses the FICO scale — NOT the Equifax 0-1200 scale used in STG_Credit_Bureau_Feed.CRED_SCORE_CURR. Do not merge these columns in the domain model without scale conversion.',
+ 'Borrower FICO credit score at origination. Range 300-850. IMPORTANT: This uses the FICO scale - NOT the Equifax 0-1200 scale used in STG_Credit_Bureau_Feed.CRED_SCORE_CURR. Do not merge these columns in the domain model without scale conversion.',
  'INTEGER', 0, 0, 0,
  '666|718|745|756|797',
  'Range: 300-850 (FICO scale). Null if not available. Average in this dataset: ~756.', 1);
@@ -234,7 +234,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'CUSTOMER_ID',
- 'Bank-assigned master customer identifier. Format: CUS-XXXXXXXX. Enterprise customer key — all product systems reference this. Join to STG_Property_Valuation.CUSTOMER_ID.',
+ 'Bank-assigned master customer identifier. Format: CUS-XXXXXXXX. Enterprise customer key - all product systems reference this. Join to STG_Property_Valuation.CUSTOMER_ID.',
  'VARCHAR(20)', 0, 0, 1,
  'CUS-00000001|CUS-00000002',
  'Must not be null. Format: CUS- prefix followed by 8 digits.', 1);
@@ -245,7 +245,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'FIRST_NAME',
- 'Customer first (given) name. PII — subject to privacy controls.',
+ 'Customer first (given) name. PII - subject to privacy controls.',
  'VARCHAR(50)', 1, 0, 1, NULL, NULL, 1);
 
 INSERT INTO MortgagePlatform_Semantic.column_metadata
@@ -254,7 +254,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'LAST_NAME',
- 'Customer last (family) name. PII — subject to privacy controls.',
+ 'Customer last (family) name. PII - subject to privacy controls.',
  'VARCHAR(50)', 1, 0, 1, NULL, NULL, 1);
 
 INSERT INTO MortgagePlatform_Semantic.column_metadata
@@ -263,7 +263,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'DATE_OF_BIRTH',
- 'Customer date of birth. PII — used for identity verification and age-based eligibility rules.',
+ 'Customer date of birth. PII - used for identity verification and age-based eligibility rules.',
  'DATE', 1, 0, 1, NULL, NULL, 1);
 
 INSERT INTO MortgagePlatform_Semantic.column_metadata
@@ -272,7 +272,7 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'AML_RISK_RATING',
- 'Anti-Money Laundering risk rating. L=Low, M=Medium, H=High. REGULATED ATTRIBUTE — access requires elevated privileges and audit trail. Subject to AML/CTF Act 2006 (Australia).',
+ 'Anti-Money Laundering risk rating. L=Low, M=Medium, H=High. REGULATED ATTRIBUTE - access requires elevated privileges and audit trail. Subject to AML/CTF Act 2006 (Australia).',
  'CHAR(1)', 0, 1, 1,
  'L|M|H',
  'Values: L, M, H only. H-rated records require mandatory review and audit logging.', 1);
@@ -283,10 +283,10 @@ INSERT INTO MortgagePlatform_Semantic.column_metadata
 VALUES
 ('MortgagePlatform_Staging', 'STG_Borrower_Profile',
  'CHURN_RISK_SCORE',
- 'Model-generated churn propensity score. Range 0.00-1.00. Higher = higher churn probability. Analytically-derived — loaded back from analytics platform, not a raw CRM field.',
+ 'Model-generated churn propensity score. Range 0.00-1.00. Higher = higher churn probability. Analytically-derived - loaded back from analytics platform, not a raw CRM field.',
  'DECIMAL(5,2)', 0, 0, 0,
  '0.12|0.35|0.67|0.89',
- 'Range: 0.00-1.00. High risk band: > 0.60. Derived field — do not overwrite with source system data.', 1);
+ 'Range: 0.00-1.00. High risk band: > 0.60. Derived field - do not overwrite with source system data.', 1);
 
 INSERT INTO MortgagePlatform_Semantic.column_metadata
 (database_name, table_name, column_name, business_description, data_type,
@@ -345,7 +345,7 @@ VALUES
  'Permitted values: Low, Medium, High, Overland Flow. Null if not assessed.', 1);
 
 -- ---------------------------------------------------------------------------
--- table_relationship — all join paths between staging tables
+-- table_relationship - all join paths between staging tables
 -- ---------------------------------------------------------------------------
 
 -- STG_Freddie_Performance → STG_Freddie_Origination
@@ -393,53 +393,53 @@ VALUES
  'Direct join from property to origination for valuation cross-checks (ORIG_UPB vs ORIG_VALUATION_AMOUNT reconciliation).');
 
 -- ---------------------------------------------------------------------------
--- naming_standard — abbreviations and conventions agents need
+-- naming_standard - abbreviations and conventions agents need
 -- ---------------------------------------------------------------------------
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'ORIG_', 'Origination — value at the time the loan was originated', 'ORIG_UPB, ORIG_LTV, ORIG_CLTV, ORIG_DTI', 1);
+('ABBREVIATION', 'ORIG_', 'Origination - value at the time the loan was originated', 'ORIG_UPB, ORIG_LTV, ORIG_CLTV, ORIG_DTI', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'UPB', 'Unpaid Principal Balance — the outstanding loan amount', 'ORIG_UPB, CURRENT_ACTUAL_UPB, ZERO_BALANCE_REMOVAL_UPB', 1);
+('ABBREVIATION', 'UPB', 'Unpaid Principal Balance - the outstanding loan amount', 'ORIG_UPB, CURRENT_ACTUAL_UPB, ZERO_BALANCE_REMOVAL_UPB', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'LTV', 'Loan-to-Value ratio — loan amount divided by property value (US term). Australian equivalent: LVR (Loan-to-Value Ratio)', 'ORIG_LTV, ESTIMATED_LOAN_TO_VALUE', 1);
+('ABBREVIATION', 'LTV', 'Loan-to-Value ratio - loan amount divided by property value (US term). Australian equivalent: LVR (Loan-to-Value Ratio)', 'ORIG_LTV, ESTIMATED_LOAN_TO_VALUE', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'CLTV', 'Combined Loan-to-Value — all liens divided by property value; CLTV >= LTV', 'ORIG_CLTV', 1);
+('ABBREVIATION', 'CLTV', 'Combined Loan-to-Value - all liens divided by property value; CLTV >= LTV', 'ORIG_CLTV', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'DTI', 'Debt-to-Income ratio — monthly debt divided by monthly gross income', 'ORIG_DTI', 1);
+('ABBREVIATION', 'DTI', 'Debt-to-Income ratio - monthly debt divided by monthly gross income', 'ORIG_DTI', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'MI', 'Mortgage Insurance — insurance protecting the lender against borrower default; required when LTV > 80%', 'MI_PERCENTAGE, MI_RECOVERIES', 1);
+('ABBREVIATION', 'MI', 'Mortgage Insurance - insurance protecting the lender against borrower default; required when LTV > 80%', 'MI_PERCENTAGE, MI_RECOVERIES', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'FRM', 'Fixed Rate Mortgage — interest rate fixed for the life of the loan', 'AMORTIZATION_TYPE = FRM', 1);
+('ABBREVIATION', 'FRM', 'Fixed Rate Mortgage - interest rate fixed for the life of the loan', 'AMORTIZATION_TYPE = FRM', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'ARM', 'Adjustable Rate Mortgage — interest rate resets periodically', 'AMORTIZATION_TYPE = ARM', 1);
+('ABBREVIATION', 'ARM', 'Adjustable Rate Mortgage - interest rate resets periodically', 'AMORTIZATION_TYPE = ARM', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'STG_', 'Staging table prefix — indicates raw source data with no transformations applied', 'STG_Freddie_Origination, STG_Borrower_Profile', 1);
+('ABBREVIATION', 'STG_', 'Staging table prefix - indicates raw source data with no transformations applied', 'STG_Freddie_Origination, STG_Borrower_Profile', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
@@ -450,7 +450,7 @@ INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
 ('CONVENTION', 'FICO scale vs Equifax scale',
- 'Two credit scoring scales exist in this product. FICO (300-850) in STG_Freddie_Origination.CREDIT_SCORE. Equifax (0-1200) in STG_Credit_Bureau_Feed.CRED_SCORE_CURR. These are NOT directly comparable — always check the source table before joining or comparing credit scores.',
+ 'Two credit scoring scales exist in this product. FICO (300-850) in STG_Freddie_Origination.CREDIT_SCORE. Equifax (0-1200) in STG_Credit_Bureau_Feed.CRED_SCORE_CURR. These are NOT directly comparable - always check the source table before joining or comparing credit scores.',
  'CREDIT_SCORE=756 (FICO) is NOT the same risk as CRED_SCORE_CURR=756 (Equifax)', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
@@ -463,20 +463,20 @@ VALUES
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'AML', 'Anti-Money Laundering — regulatory framework requiring banks to detect and report suspicious transactions', 'AML_RISK_RATING, AML/CTF Act 2006', 1);
+('ABBREVIATION', 'AML', 'Anti-Money Laundering - regulatory framework requiring banks to detect and report suspicious transactions', 'AML_RISK_RATING, AML/CTF Act 2006', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'KYC', 'Know Your Customer — identity verification process required before onboarding a customer', 'KYC_STATUS, KYC_VERIFICATION_DATE', 1);
+('ABBREVIATION', 'KYC', 'Know Your Customer - identity verification process required before onboarding a customer', 'KYC_STATUS, KYC_VERIFICATION_DATE', 1);
 
 INSERT INTO MortgagePlatform_Semantic.naming_standard
 (standard_type, pattern, meaning, example, is_active)
 VALUES
-('ABBREVIATION', 'REO', 'Real Estate Owned — property acquired by a lender through foreclosure', 'ZERO_BALANCE_CODE=09 (REO Disposition), CURRENT_LOAN_DELINQUENCY_STATUS=RA (REO Acquisition)', 1);
+('ABBREVIATION', 'REO', 'Real Estate Owned - property acquired by a lender through foreclosure', 'ZERO_BALANCE_CODE=09 (REO Disposition), CURRENT_LOAN_DELINQUENCY_STATUS=RA (REO Acquisition)', 1);
 
 -- =============================================================================
--- TABLE RELATIONSHIP — missing Customer_H → Customer_Keymap relationship
+-- TABLE RELATIONSHIP - missing Customer_H → Customer_Keymap relationship
 -- This omission caused Customer_H to appear as an isolated entity in the
 -- table_relationship completeness check. Fixed per AI-Native standard v2.6.
 -- =============================================================================
@@ -493,7 +493,7 @@ VALUES
  1, 1, 'Customer history rows to stable customer surrogate key - PI join co-locates all versions on same AMP');
 
 -- =============================================================================
--- TABLE RELATIONSHIP — Staging to Domain cross-module semantic relationships
+-- TABLE RELATIONSHIP - Staging to Domain cross-module semantic relationships
 -- Zero cross-module relationships existed prior to this change. These five
 -- SEMANTIC relationships enable agents to trace lineage from Domain entities
 -- back to their source staging rows. relationship_type = 'SEMANTIC' (not
@@ -557,7 +557,7 @@ VALUES
  0, 1, 'Property valuation staging row is the source for property domain entity - join on natural key PROPERTY_ID');
 
 -- =============================================================================
--- ENTITY METADATA — child entities, keymaps, and reference tables
+-- ENTITY METADATA - child entities, keymaps, and reference tables
 -- Added to align with AI-Native Data Product Design Standard v2.6
 -- which requires entity_metadata coverage for all tables in all modules.
 -- =============================================================================
@@ -688,7 +688,7 @@ INSERT INTO MortgagePlatform_Semantic.table_relationship (from_database, from_ta
 VALUES ('MortgagePlatform_Domain', 'LoanStatement_H', 'customer_key', 'MortgagePlatform_Domain', 'Customer_Keymap', 'customer_key', 'FOREIGN_KEY', 'LEFT', 'MANY_TO_ONE', 0, 1, 'Monthly loan statements to the borrower customer - enables statement-to-customer navigation for regulatory lineage queries');
 
 -- =============================================================================
--- TABLE RELATIONSHIP — reference table lookups (17 relationships)
+-- TABLE RELATIONSHIP - reference table lookups (17 relationships)
 -- These link transactional tables to their reference decode tables.
 -- All use LEFT join and is_mandatory=0 since code columns are nullable.
 -- Agents use _Enriched views for decoded output; these relationships
